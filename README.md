@@ -1,3 +1,7 @@
+=======
+minesNF
+=======
+
 ##TODO
 * separate players and clients
 * add  create/filter parties
