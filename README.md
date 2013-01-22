@@ -1,9 +1,10 @@
 =======
-minesNF
+minesNF - cooperative non-flagging minesweeper game
 =======
 
 ##TODO
+* change 'location' to 'game' in Server.js
 * separate players and clients
-* add  create/filter parties
+* add  filter parties
 * implement temp/registered users connect/disconnect behaviour
 

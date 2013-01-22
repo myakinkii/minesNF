@@ -1,0 +1,68 @@
+div#Side
+{
+ position:absolute;
+ text-align:left;
+ left:590px;
+ top:5px;
+ width:250px;
+}
+
+div#epictable
+{
+ position:absolute;
+ text-align:center;
+ left:5px;
+ top:5px;
+ width:580px;
+}
+
+div#mediumtable
+{
+ position:absolute;
+ text-align:center;
+ left:5px;
+ top:350px;
+ width:305px;
+}
+
+div#smalltable
+{
+ position:absolute;
+ text-align:center;
+ left:385px;
+ top:390px;
+ width:155px;
+}
+
+table {
+  border:1px solid black;
+  border-collapse: collapse;
+}
+
+td {
+  width:16px;
+  height:16px;
+  border:1px solid black;
+  font:11px Arial black;
+  background:#ddd;
+}
+
+body{background:#eee;}
+
+body a:hover
+{cursor:default; text-decoration:none;}
+
+.newResult {font-weight:bold}
+
+.cell{width:13px;height:13px;}
+.Cell0{color:#aaa;}
+.Cell1{color:#00f;}
+.Cell2{color:#390;}
+.Cell3{color:#f00;}
+.Cell4{color:#309;}
+.Cell5{color:#930;}
+.Cell6{color:#099;}
+.Cell7{color:#939;}
+.Cell8{color:#000;}
+.CellX{color:#333;}
+
