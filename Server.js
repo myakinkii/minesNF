@@ -27,7 +27,7 @@ function Server(db){
      rankM:{jsFile:rank,maxPlayers:1,modePars:{bSize:'medium',board:mediumBoard}},
      rankB:{jsFile:rank,maxPlayers:1,modePars:{bSize:'large',board:largeBoard}}
     };
-this.locationCommands={
+this.gameCommands={
   '/check':{f:'checkCell',d:'/check - check cell <x> <y>'},
   '/quit':{f:'quitGame',d:'/quit - quit current game'}
   };
@@ -37,7 +37,7 @@ this.chatCommands={
   '/spec':{f:'addSpectator',d:'/spec <user> - spectate user'},
   '/leave':{f:'leaveParty',d:'/leave - leave party'},
   '/create':{f:'createParty',d:'/create <template> <maxplayers> - create party'},
-  '/publish':{f:'publishParty',d:'/publish - publish party you are in info to players'},
+//  '/publish':{f:'publishParty',d:'/publish - publish party you are in info to players'},
   '/dismiss':{f:'dismissParty',d:'/dismiss - dismiss a party where you are a leader'},
   '/kick':{f:'kickPlayerFromParty',d:'/kick <player> - kick player from a party where you are a leader'},
   '/login':{f:'logIn',d:'/login <user> <passwd> - log in or register new user'},
@@ -64,8 +64,8 @@ Server.prototype.userDisconnected=function(caller){
 };
 
 Server.prototype.showHelp=function(user){
-  if (this.users[user].state=='location')
-    this.sendEvent('client',user,'chat','Help',this.locationCommands);
+  if (this.users[user].state=='game')
+    this.sendEvent('client',user,'chat','Help',this.gameCommands);
   else 
     this.sendEvent('client',user,'chat','Help',this.chatCommands);
 };
@@ -115,7 +115,7 @@ Server.prototype.initUser=function(caller,user,flag){
   }
   if (this.users[user].partyId)
     this.emit('addToGroup',this.users[user].clientId,this.users[user].partyId);
-  if (this.users[user].state=='location')
+  if (this.users[user].state=='game')
     this.sendCommandToFork(this.users[user].partyId,user,'initGUI');
   this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
 };
@@ -190,22 +190,22 @@ Server.prototype.processCommand=function(caller,s){
       pars[0]=caller;
     else
       pars[0]=user;
-    if (this.users[user].state=='location')
+    if (this.users[user].state=='game')
       this.sendEvent('client',user,'system','Error',
                       {text:'You cannot do this now'});
     else
       this[this.chatCommands[command].f].apply(this,pars);
     isCommand=1;
   }
-  if (this.locationCommands[command]){
-    if (this.users[user].state=='location'){
-      pars[0]=this.locationCommands[command].f; 
+  if (this.gameCommands[command]){
+    if (this.users[user].state=='game'){
+      pars[0]=this.gameCommands[command].f; 
       pars.unshift(user);
       pars.unshift(this.users[user].partyId);
       this.sendCommandToFork.apply(this,pars);
     } else 
       this.sendEvent('client',user,'system','Error',
-                      {text:'Not in location now'});
+                      {text:'Not in game now'});
     isCommand=1;
   }
   var shortCommand=s.slice(0,1);
@@ -349,9 +349,9 @@ Server.prototype.addPlayerToParty=function(user,pId){
 Server.prototype.addSpectator=function(spectator,user){
 if (spectator!=user)
   if (this.users[user]){
-    if (this.users[user].state=='location'){
+    if (this.users[user].state=='game'){
       var pId=this.users[user].partyId;
-      this.users[spectator].state='location';
+      this.users[spectator].state='game';
       this.users[spectator].partyId=pId;
       this.emit('addToGroup',this.users[spectator].clientId,pId);
       this.sendCommandToFork(pId,spectator,'addSpectator');
@@ -381,9 +381,9 @@ Server.prototype.createFork=function(args){
       [JSON.stringify(args)]
     );
     for (var u in args.users){
-      self.users[u].state='location';
+      self.users[u].state='game';
       self.sendEvent('client',u,'system','Message',args.name+' started.');
-      console.log(u+' has joined the location '+ args.name);
+      console.log(u+' has joined the game '+ args.name);
     }
     self.processes[args.id].on('message',function(e){
       self.dispatchEventFromFork.call(self,e)

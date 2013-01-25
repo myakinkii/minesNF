@@ -18,8 +18,10 @@ Board.prototype.endGame=function(message){
 alert(message);
 };
 
-Board.prototype.checkCellValue=function(cellId){
-  this.parent.checkCellValue(cellId);
+Board.prototype.openLog=function(log){
+  for (var i in log){
+    this.getCellValues(log[i].cellsOpened);
+  }
 };
 
 Board.prototype.getCellValues=function(values){
@@ -39,8 +41,10 @@ this.parent.cells[this.id]=this;
 }
 
 Cell.prototype.clickCell=function(e){
-  if (!this.parent.stopClicking)
-  this.parent.checkCellValue(this.id);
+  if (!this.parent.stopClicking){
+    var arr=this.id.split('_');
+    window.now.processCommand('/check '+arr[1]+' '+arr[2]);
+  }
 };
 
 Cell.prototype.setCellValue=function(value){
