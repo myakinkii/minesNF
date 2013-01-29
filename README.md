@@ -1,5 +1,6 @@
 =======
 minesNF - cooperative non-flagging minesweeper
+http//:minesnf.com
 =======
 
 ##TODO
