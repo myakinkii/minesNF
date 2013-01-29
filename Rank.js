@@ -1,20 +1,22 @@
 var Game=require('./Game.js');
-var game=new Game(JSON.parse(process.argv[2]));
 
-game.startGame=function(){
+function RankGame(pars){
+  Game.call(this,pars);
   this.gamesPlayed=0;
   this.won=0;
   this.lost=0;
   this.winStreak=0;
   this.loseStreak=0;
-  this.startBoard();
+//  this.startBoard();
 };
 
-game.onStartBoard=function(){
+RankGame.prototype=new Game;
+
+RankGame.prototype.onStartBoard=function(){
   this.resetScore();
 };
 
-game.onResetBoard=function(e){
+RankGame.prototype.onResetBoard=function(e){
   this.gamesPlayed++;
   if (e.win){
     this.winStreak++;
@@ -33,19 +35,19 @@ game.onResetBoard=function(e){
   stat.lost=this.lost,
   stat.winPercentage=Math.round(100*this.won/this.gamesPlayed)+'%',
   stat.streak=this.winStreak?this.winStreak:this.loseStreak;
-  this.sendEvent('party',this.id,'game','ShowResultRank',stat);
+  this.emitEvent('party',this.id,'game','ShowResultRank',stat);
 };
 
-game.onCells=function(re){
+RankGame.prototype.onCells=function(re){
   this.openCells(re.cells);
 };
 
-game.onBomb=function(re){
+RankGame.prototype.onBomb=function(re){
   this.openCells(this.board.mines);
   this.resetBoard(re);
 };
 
-game.onComplete=function(re){
+RankGame.prototype.onComplete=function(re){
   this.openCells(re.cells);
   this.openCells(this.board.mines);
   re.win=1;
@@ -55,9 +57,5 @@ game.onComplete=function(re){
   this.resetBoard(re);
 };
 
-process.on('message', function(e) {
-  game.dispatchEvent(e);
-});
-
-game.startGame();
+module.exports=RankGame;
 

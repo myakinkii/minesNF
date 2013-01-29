@@ -1,7 +1,11 @@
 var fork = require('child_process').fork;
 var EventEmitter=require('events').EventEmitter;
+var Coop=require('./Coop.js');
+var Versus=require('./Versus.js');
+var Rank=require('./Rank.js');
 
 function Server(db){
+  this.singleThread=1;
   this.db=db;
   this.users={};
   this.tempUsers=0;
@@ -9,44 +13,45 @@ function Server(db){
   this.NaMessages={};
   this.partyCounter=1;
   this.parties={};
-  this.processes={};
-  var coop='Coop.js';
-  var versus='Versus.js';
-  var rank='Rank.js';
+  this.games={};
   var smallBoard={r:8,c:8,b:10};
   var mediumBoard={r:16,c:16,b:40};
   var largeBoard={c:30,r:16,b:99};
   this.modes={
-     coop:{jsFile:coop,maxPlayers:2,modePars:{bSize:'small',board:smallBoard}},
-     coopM:{jsFile:coop,maxPlayers:3,modePars:{bSize:'medium',board:mediumBoard}},
-     coopB:{jsFile:coop,maxPlayers:4,modePars:{bSize:'large',board:largeBoard}},
-     versus:{jsFile:versus,maxPlayers:2,modePars:{bSize:'small',board:smallBoard}},
-     versusM:{jsFile:versus,maxPlayers:3,modePars:{bSize:'medium',board:mediumBoard}},
-     versusB:{jsFile:versus,maxPlayers:4,modePars:{bSize:'large',board:largeBoard}},
-     rank:{jsFile:rank,maxPlayers:1,modePars:{bSize:'small',board:smallBoard}},
-     rankM:{jsFile:rank,maxPlayers:1,modePars:{bSize:'medium',board:mediumBoard}},
-     rankB:{jsFile:rank,maxPlayers:1,modePars:{bSize:'large',board:largeBoard}}
+     coop:{constr:Coop,maxPlayers:2,modePars:{bSize:'small',board:smallBoard}},
+     coopM:{constr:Coop,maxPlayers:3,modePars:{bSize:'medium',board:mediumBoard}},
+     coopB:{constr:Coop,maxPlayers:4,modePars:{bSize:'large',board:largeBoard}},
+     versus:{constr:Versus,maxPlayers:2,modePars:{bSize:'small',board:smallBoard}},
+     versusM:{constr:Versus,maxPlayers:3,modePars:{bSize:'medium',board:mediumBoard}},
+     versusB:{constr:Versus,maxPlayers:4,modePars:{bSize:'large',board:largeBoard}},
+     rank:{constr:Rank,maxPlayers:1,modePars:{bSize:'small',board:smallBoard}},
+     rankM:{constr:Rank,maxPlayers:1,modePars:{bSize:'medium',board:mediumBoard}},
+     rankB:{constr:Rank,maxPlayers:1,modePars:{bSize:'large',board:largeBoard}}
     };
-this.gameCommands={
-  '/check':{f:'checkCell',d:'/check - check cell <x> <y>'},
-  '/quit':{f:'quitGame',d:'/quit - quit current game'}
+  this.gameCommands={
+    '/check':{f:'checkCell',d:'/check - check cell <x> <y>'},
+    '/quit':{f:'quitGame',d:'/quit - quit current game'}
   };
-this.chatCommands={
-  '/to':{f:'sendPrivateMessage',d:'/to <player> <text> - send private message'},
-  '/join':{f:'joinParty',d:'/join <partyId> - join party'},
-  '/spec':{f:'addSpectator',d:'/spec <user> - spectate user'},
-  '/leave':{f:'leaveParty',d:'/leave - leave party'},
-  '/create':{f:'createParty',d:'/create <template> <maxplayers> - create party'},
+  this.chatCommands={
+    '/to':{f:'sendPrivateMessage',d:'/to <player> <text> - send private message'},
+    '/join':{f:'joinParty',d:'/join <partyId> - join party'},
+    '/spec':{f:'addSpectator',d:'/spec <user> - spectate user'},
+    '/leave':{f:'leaveParty',d:'/leave - leave party'},
+    '/create':{f:'createParty',d:'/create <template> <maxplayers> - create party'},
 //  '/publish':{f:'publishParty',d:'/publish - publish party you are in info to players'},
-  '/dismiss':{f:'dismissParty',d:'/dismiss - dismiss a party where you are a leader'},
-  '/kick':{f:'kickPlayerFromParty',d:'/kick <player> - kick player from a party where you are a leader'},
-  '/login':{f:'logIn',d:'/login <user> <passwd> - log in or register new user'},
-  '/logoff':{f:'logOff',d:'/logoff - log off registered user'},
-  '/help':{f:'showHelp',d:'/help - show this help'}
+    '/dismiss':{f:'dismissParty',d:'/dismiss - dismiss a party where you are a leader'},
+    '/kick':{f:'kickPlayerFromParty',d:'/kick <player> - kick player from a party where you are a leader'},
+    '/login':{f:'logIn',d:'/login <user> <passwd> - log in or register new user'},
+    '/logoff':{f:'logOff',d:'/logoff - log off registered user'},
+    '/help':{f:'showHelp',d:'/help - show this help'}
   };
 }
 
 Server.prototype=EventEmitter.prototype;
+
+Server.prototype.foo=function(){
+console.log('Server');
+};
 
 Server.prototype.userIsOnline=function(user){
   return this.users[user]?true:false;
@@ -116,7 +121,7 @@ Server.prototype.initUser=function(caller,user,flag){
   if (this.users[user].partyId)
     this.emit('addToGroup',this.users[user].clientId,this.users[user].partyId);
   if (this.users[user].state=='game')
-    this.sendCommandToFork(this.users[user].partyId,user,'initGUI');
+    this.execGameCommand(this.users[user].partyId,user,'initGUI');
   this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
 };
 
@@ -202,7 +207,7 @@ Server.prototype.processCommand=function(caller,s){
       pars[0]=this.gameCommands[command].f; 
       pars.unshift(user);
       pars.unshift(this.users[user].partyId);
-      this.sendCommandToFork.apply(this,pars);
+      this.execGameCommand.apply(this,pars);
     } else 
       this.sendEvent('client',user,'system','Error',
                       {text:'Not in game now'});
@@ -340,29 +345,31 @@ Server.prototype.addPlayerToParty=function(user,pId){
     if (p.maxPlayers>1)
       this.sendEvent('everyone',null,'chat','UpdateParties',this.parties);
     if (p.curPlayers==p.maxPlayers)
-      this.createFork(p);
+      this.createGame(p);
   } else
     this.sendEvent('client',user,'system','Error',
                     {text:'You have already joined the party.'});
 };
 
+//Coop.prototype.foo()
 Server.prototype.addSpectator=function(spectator,user){
-if (spectator!=user)
-  if (this.users[user]){
-    if (this.users[user].state=='game'){
-      var pId=this.users[user].partyId;
-      this.users[spectator].state='game';
-      this.users[spectator].partyId=pId;
-      this.emit('addToGroup',this.users[spectator].clientId,pId);
-      this.sendCommandToFork(pId,spectator,'addSpectator');
+  if (spectator!=user)
+    if (this.users[user]){
+      if (this.users[user].state=='game'){
+        var pId=this.users[user].partyId;
+        this.users[spectator].state='game';
+        this.users[spectator].partyId=pId;
+        this.execGameCommand(pId,spectator,'addSpectator');
+        this.emit('addToGroup',this.users[spectator].clientId,pId);
+      } else
+      this.sendEvent('client',user,'system','Error',
+                      {text:user+' not in a game now'});
     } else
-    this.sendEvent('client',user,'system','Error',
-                    {text:user+' not in a game now'});
-  } else
-    this.sendEvent('client',spectator,'system','Error',{text:'No such user.'});
+      this.sendEvent('client',spectator,'system','Error',{text:'No such user.'});
 };
+//Coop.prototype.foo()
 
-Server.prototype.createFork=function(args){
+Server.prototype.createGame=function(args){
   var query={};
   query['$or']=[];
   query['$or'].push({user:'default'});
@@ -376,33 +383,37 @@ Server.prototype.createFork=function(args){
       profiles[res[i].user]=res[i].profile;
     args.profiles=profiles;
     args.modePars=self.modes[args.mode].modePars;
-    self.processes[args.id]=fork(
-      __dirname+'/'+self.modes[args.mode].jsFile,
-      [JSON.stringify(args)]
-    );
     for (var u in args.users){
       self.users[u].state='game';
       self.sendEvent('client',u,'system','Message',args.name+' started.');
       console.log(u+' has joined the game '+ args.name);
     }
-    self.processes[args.id].on('message',function(e){
-      self.dispatchEventFromFork.call(self,e)
-    });
-    self.sendEvent('everyone',null,'chat','UpdateParties',self.parties);
 
-    console.log('Game '+args.name+' created');
+  if (self.singleThread)
+    self.games[args.id]=new self.modes[args.mode].constr(args);
+  else
+    self.games[args.id]=fork(__dirname+'/GameWrapper.js',[JSON.stringify(args)]);
+  self.games[args.id].on('message',function(e){
+    self.getGameCommandResult.call(self,e)
+  });
+  self.execGameCommand(args.id,null,'startBoard');
+
+    self.sendEvent('everyone',null,'chat','UpdateParties',self.parties);
     self.sendEvent('everyone',null,'chat','UpdatePlayers',self.users);
+    console.log('Game '+args.name+' created');
   });
 
 };
 
-
-Server.prototype.sendCommandToFork=function(pId,user,command){
+Server.prototype.execGameCommand=function(pId,user,command){
   var pars=Array.prototype.slice.call(arguments,3);
-  this.processes[pId].send({user:user,command:command,pars:pars});
-}
+  if (this.singleThread)
+    this.games[pId].dispatchEvent({user:user,command:command,pars:pars});
+  else
+    this.games[pId].send({user:user,command:command,pars:pars});
+};
 
-Server.prototype.dispatchEventFromFork=function(e){
+Server.prototype.getGameCommandResult=function(e){
   if (e.dst=='server')
     this[e.func](e.arg);
   else
@@ -433,7 +444,7 @@ Server.prototype.childExit=function(e){
       this.users[u].state='online';
         this.sendEvent('client',u,'system','Message','You have left '+e.name);
     }
-    delete this.processes[e.partyId];
+    delete this.games[e.partyId];
     this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
     console.log('Game '+e.name+' returned 0');
 };

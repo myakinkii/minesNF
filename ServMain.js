@@ -17,7 +17,7 @@ var httpServ = http.createServer(app);
 var everyone = nowjs.initialize(httpServ);
 httpServ.listen(8080);
 
-console.log('\nserver started\n');
+console.log('\nserver started in',server.singleThread?'single':'muliti','thread mode\n');
 
 everyone.connected(function(){server.initAuth(this.user)});
 everyone.disconnected(function(){server.userDisconnected(this.user)});

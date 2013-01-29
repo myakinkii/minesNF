@@ -1,20 +1,25 @@
 var Game=require('./Game.js');
-var game=new Game(JSON.parse(process.argv[2]));
 
-game.startGame=function(){
+function CoopGame(pars){
+  Game.call(this,pars);
   this.gamesPlayed=0;
   this.won=0;
   this.lost=0;
   this.winStreak=0;
   this.loseStreak=0;
-  this.startBoard();
 };
 
-game.onStartBoard=function(){
+CoopGame.prototype=new Game;
+
+CoopGame.prototype.foo=function(){
+console.log('Coop');
+};
+
+CoopGame.prototype.onStartBoard=function(){
   this.resetScore();
 };
 
-game.onResetBoard=function(e){
+CoopGame.prototype.onResetBoard=function(e){
   this.gamesPlayed++;
   if (e.win){
     this.winStreak++;
@@ -34,20 +39,20 @@ game.onResetBoard=function(e){
   stat.lost=this.lost,
   stat.winPercentage=Math.round(100*this.won/this.gamesPlayed)+'%',
   stat.streak=this.winStreak?this.winStreak:this.loseStreak;
-  this.sendEvent('party',this.id,'game','ShowResultCoop',stat);
+  this.emitEvent('party',this.id,'game','ShowResultCoop',stat);
 };
 
-game.onCells=function(re){
+CoopGame.prototype.onCells=function(re){
   this.addPoints(re);
   this.openCells(re.cells);
 };
 
-game.onBomb=function(re){
+CoopGame.prototype.onBomb=function(re){
   this.openCells(this.board.mines);
   this.resetBoard(re);
 };
 
-game.onComplete=function(re){
+CoopGame.prototype.onComplete=function(re){
   this.addPoints(re);
   this.openCells(re.cells);
   this.openCells(this.board.mines);
@@ -55,9 +60,5 @@ game.onComplete=function(re){
   this.resetBoard(re);
 };
 
-process.on('message', function(e) {
-  game.dispatchEvent(e);
-});
-
-game.startGame();
+module.exports=CoopGame;
 

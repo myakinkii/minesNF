@@ -1,56 +1,68 @@
 var Board=require('./Board.js');
+var EventEmitter=require('events').EventEmitter;
 
 function Game(pars){
-  this.id=pars.id;
-  this.mode=pars.mode;
-  this.bSize=pars.modePars.bSize;
-  this.name=pars.name;
-  this.players=pars.users;
-  this.spectators={};
-  this.partyLeader=pars.leader;
-  this.playersInGame=pars.curPlayers;
-  this.penalty={};
-  this.resetScore();
-  this.board=new Board(pars.name,pars.modePars.board);
+  if (pars){
+    this.id=pars.id;
+    this.mode=pars.mode;
+    this.bSize=pars.modePars.bSize;
+    this.name=pars.name;
+    this.players=pars.users;
+    this.spectators={};
+    this.partyLeader=pars.leader;
+    this.playersInGame=pars.curPlayers;
+    this.penalty={};
+    this.resetScore();
+    this.board=new Board(pars.name,pars.modePars.board);
+  }
 }
 
-Game.prototype.sendEvent=function(dst,dstId,contextId,func,arg){
-  process.send({dst:dst,
+Game.prototype=EventEmitter.prototype;
+
+Game.prototype.foo=function(){
+console.log('Game');
+};
+
+Game.prototype.emitEvent=function(dst,dstId,contextId,func,arg){
+  this.emit('message',{dst:dst,
                 dstId:dstId,
                 contextId:contextId,
                 func:func,
                 arg:arg});
+
 };
 
 Game.prototype.dispatchEvent=function(e){
-  if ([e.command]=='checkCell' && this.players[e.user])
-      this.checkCell(e);
-  if ([e.command]=='quitGame')
-    this.quitGame(e.user);
-  if ([e.command]=='initGUI')
+  if (e.command=='checkCell' && this.players[e.user])
+    this.checkCell(e);
+  if (e.command=='startBoard')
+    this.startBoard();
+  if (e.command=='initGUI')
     this.initGUI(e.user);
-  if ([e.command]=='addSpectator')
-    this.addSpectator(e.user)
+  if (e.command=='addSpectator')
+    this.addSpec(e.user);
+  if (e.command=='quitGame')
+    this.quitGame(e.user);
 };
 
-Game.prototype.addSpectator=function(user){
+Game.prototype.addSpec=function(user){
   this.spectators[user]=1;
-  this.sendEvent('party',this.id,'system','Message',
+  this.emitEvent('party',this.id,'system','Message',
                  user+' joined '+this.name+' as a spectator');
   this.initGUI(user);
 };
 
 Game.prototype.initGUI=function(user){
-  this.sendEvent('client',user,'game','StartGame',
+  this.emitEvent('client',user,'game','StartGame',
                  {boardId:this.name,r:this.board.sizeY,c:this.board.sizeX});
-  this.sendEvent('client',user,'game','OpenLog',this.log);
+  this.emitEvent('client',user,'game','OpenLog',this.log);
 };
 
 Game.prototype.startBoard=function(){
   this.pause=0;
   this.logStart=0;
   this.log={};
-  this.sendEvent('party',this.id,'game','StartGame',
+  this.emitEvent('party',this.id,'game','StartGame',
                  {boardId:this.name,r:this.board.sizeY,c:this.board.sizeX});
   if (this.onStartBoard)
     this.onStartBoard();
@@ -107,7 +119,7 @@ Game.prototype.addPoints=function(re){
 };
 
 Game.prototype.openCells=function(cells){
-  this.sendEvent('party',this.id,'game','CellValues',cells);
+  this.emitEvent('party',this.id,'game','CellValues',cells);
 };
 
 Game.prototype.setUserPenalty=function(user,time){
@@ -130,17 +142,17 @@ Game.prototype.logEvent=function(re){
 };
 
 Game.prototype.quitGame=function(user){
-  this.sendEvent('client',user,'game','EndGame');
+  this.emitEvent('client',user,'game','EndGame');
   if (this.spectators[user]){
     delete this.spectators[user];
-    this.sendEvent('server',null,null,'userLeftGame',
+    this.emitEvent('server',null,null,'userLeftGame',
                    {partyId:this.id,name:this.name,user:user});
   } else {
     if (this.playersInGame==1){
-      this.sendEvent('server',null,null,'childExit',
+      this.emitEvent('server',null,null,'childExit',
                      {partyId:this.id,name:this.name,
                       spectators:this.spectators,users:this.players});
-      process.exit(0);
+//      process.exit(0);
     } else {
       this.playersInGame--;
       delete this.players[user];
@@ -148,7 +160,7 @@ Game.prototype.quitGame=function(user){
         this.partyLeader=i
         break;
       }
-      this.sendEvent('server',null,null,'userLeftGame',
+      this.emitEvent('server',null,null,'userLeftGame',
                      {partyId:this.id,name:this.name,user:user});
     }
   }
@@ -156,11 +168,11 @@ Game.prototype.quitGame=function(user){
 
 Game.prototype.endGame=function(){
   for (var i in this.players)
-    this.sendEvent('client',i,'game','EndGame');
-  this.sendEvent('server',null,null,'childExit',
+    this.emitEvent('client',i,'game','EndGame');
+  this.emitEvent('server',null,null,'childExit',
                  {partyId:this.id,name:this.name,
                   spectators:this.spectators,users:this.players});
-  process.exit(0);
+//  process.exit(0);
 };
 
 module.exports=Game;

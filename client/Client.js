@@ -9,7 +9,7 @@ function Client(){
               joinParty:{0:'joinParty'},
               specPlayer:{0:'specPlayer'},
               party:{0:'sendPartyPM',
-                     68:'dismissParty' 
+                     68:'dismissParty' }
              };
   this.key=0;
   this.view={};
