@@ -49,9 +49,11 @@ function Server(db){
 
 Server.prototype=EventEmitter.prototype;
 
+//Coop.prototype.foo()
 Server.prototype.foo=function(){
 console.log('Server');
 };
+//Coop.prototype.foo()
 
 Server.prototype.userIsOnline=function(user){
   return this.users[user]?true:false;
@@ -353,7 +355,6 @@ Server.prototype.addPlayerToParty=function(user,pId){
                     {text:'You have already joined the party.'});
 };
 
-//Coop.prototype.foo()
 Server.prototype.addSpectator=function(spectator,user){
   if (spectator!=user)
     if (this.users[user]){
@@ -369,7 +370,6 @@ Server.prototype.addSpectator=function(spectator,user){
     } else
       this.sendEvent('client',spectator,'system','Error',{text:'No such user.'});
 };
-//Coop.prototype.foo()
 
 Server.prototype.createGame=function(args){
   var query={};
