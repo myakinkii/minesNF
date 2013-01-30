@@ -1,9 +1,10 @@
 var express = require("express");
 var nowjs = require('now');
 var http = require('http');
-var MemStore = express.session.MemoryStore;
+//var MemStore = express.session.MemoryStore;
 var app = express();
-var db = require('mongojs').connect('mines',['users']);
+var db = require('mongojs').connect('mongodb://nodejitsu:5a6af20173a82beb78e93790a4f6435b@linus.mongohq.com:10033/nodejitsudb5924995727',['users']);
+//var db = require('mongojs').connect('mines',['users']);
 var Server = require('./Server.js');
 var server = new Server(db);
 
@@ -15,7 +16,8 @@ app.configure(function(){
 
 var httpServ = http.createServer(app);
 var everyone = nowjs.initialize(httpServ);
-httpServ.listen(8080);
+httpServ.listen(80);
+//httpServ.listen(8080);
 
 console.log('\nserver started in',server.singleThread?'single':'muliti','thread mode\n');
 
