@@ -18,15 +18,15 @@ function Server(db){
   var mediumBoard={r:16,c:16,b:40};
   var largeBoard={c:30,r:16,b:99};
   this.modes={
-     coop:{constr:Coop,maxPlayers:2,modePars:{bSize:'small',board:smallBoard}},
-     coopM:{constr:Coop,maxPlayers:3,modePars:{bSize:'medium',board:mediumBoard}},
-     coopB:{constr:Coop,maxPlayers:4,modePars:{bSize:'large',board:largeBoard}},
-     versus:{constr:Versus,maxPlayers:2,modePars:{bSize:'small',board:smallBoard}},
-     versusM:{constr:Versus,maxPlayers:3,modePars:{bSize:'medium',board:mediumBoard}},
-     versusB:{constr:Versus,maxPlayers:4,modePars:{bSize:'large',board:largeBoard}},
-     rank:{constr:Rank,maxPlayers:1,modePars:{bSize:'small',board:smallBoard}},
-     rankM:{constr:Rank,maxPlayers:1,modePars:{bSize:'medium',board:mediumBoard}},
-     rankB:{constr:Rank,maxPlayers:1,modePars:{bSize:'large',board:largeBoard}}
+     coop:{constr:Coop,min:2,max:2,modePars:{bSize:'small',board:smallBoard}},
+     coopM:{constr:Coop,min:2,max:3,modePars:{bSize:'medium',board:mediumBoard}},
+     coopB:{constr:Coop,min:2,max:4,modePars:{bSize:'large',board:largeBoard}},
+     versus:{constr:Versus,min:2,max:2,modePars:{bSize:'small',board:smallBoard}},
+     versusM:{constr:Versus,min:2,max:3,modePars:{bSize:'medium',board:mediumBoard}},
+     versusB:{constr:Versus,min:2,max:4,modePars:{bSize:'large',board:largeBoard}},
+     rank:{constr:Rank,min:1,max:1,modePars:{bSize:'small',board:smallBoard}},
+     rankM:{constr:Rank,min:1,max:1,modePars:{bSize:'medium',board:mediumBoard}},
+     rankB:{constr:Rank,min:1,max:1,modePars:{bSize:'large',board:largeBoard}}
     };
   this.gameCommands={
     '/check':{f:'checkCell',d:'/check - check cell <x> <y>'},
@@ -225,7 +225,7 @@ Server.prototype.processCommand=function(caller,s){
   }
   if (shortCommand=='#' && isCommand==0){
     if (this.users[user].partyId)
-      this.sendEvent('party',this.users[user].partyId,'chat','Message',
+      this.sendEvent('party',this.users[user].partyId,'chat','PartyMessage',
                       {from:user,type:'partyPM',text:s.slice(1,s.length)});
     else
       this.sendEvent('client',user,'system','Error',{text:'Not in party'});
@@ -240,9 +240,11 @@ Server.prototype.createParty=function(user,mode,m){
   if (this.modes[mode]){
     if (this.users[user].state=='online'){
       var partyId=this.partyCounter++;
-      var maxPlayers=m||1;
-      if (maxPlayers>this.modes[mode].maxPlayers)
-        maxPlayers=this.modes[mode].maxPlayers;
+      var maxPlayers=parseInt(m)||this.modes[mode].min;
+      if (maxPlayers<this.modes[mode].min)
+        maxPlayers=this.modes[mode].min;
+      if (maxPlayers>this.modes[mode].max)
+        maxPlayers=this.modes[mode].max;
       this.parties[partyId]={
         id:partyId,
         name:mode+partyId,

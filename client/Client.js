@@ -59,6 +59,7 @@ Client.prototype.initHandlers=function(){
   this.registerHandler('Error','system',this.errorHandler,this);
   this.registerHandler('Message','system',this.systemMessageHandler,this);
   this.registerHandler('Message','chat',this.messageHandler,this);
+  this.registerHandler('PartyMessage','chat',this.partyMessageHandler,this);
   this.registerHandler('PrivateMessage','chat',this.privateMessageHandler,this);
   this.registerHandler('NAMessages','chat',this.NAMessagesHandler,this);
   this.registerHandler('Welcome','chat',this.showWelcomeMessage,this);
@@ -119,10 +120,19 @@ Client.prototype.systemMessageHandler=function(text){
 };
 
 Client.prototype.messageHandler=function(m){
-  this.renderMessage([{val:m.from,type:m.type},' ',m.text]);
+  this.renderMessage([{val:m.from,type:m.type},': ',m.text]);
+};
+
+Client.prototype.partyMessageHandler=function(m){
+  this.renderMessage(['party pm from ',{val:m.from,type:m.type},': ',m.text]);
 };
 
 Client.prototype.privateMessageHandler=function(m){
+  if (this.user==m.to)
+    var message=['pm from ',{val:m.from,type:'PM'},': ',m.text];
+  else
+    var message=['pm to ',{val:m.to,type:'PM'},': ',m.text];
+  this.renderMessage(message);
 };
 
 Client.prototype.NAMessagesHandler=function(messages){
