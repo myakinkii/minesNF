@@ -101,12 +101,14 @@ Server.prototype.initUser=function(caller,user,flag){
   if (!this.userIsOnline(user)){
     this.users[user]={state:'online',clientId:caller.clientId};
     console.log(user+' has logged in');
+    this.sendEvent('client',user,'auth','InitClient');
     this.sendEvent('everyone',null,'system','Message',user+' has logged in.');
     this.sendEvent('client',user,'chat','Welcome');
   } else {
     this.sendEvent('client',user,'auth','Logoff','Someone kicked your ass');
     this.users[user].clientId=caller.clientId;
     console.log(user+' connected');
+    this.sendEvent('client',user,'auth','InitClient');
   }
 
   this.connectSids[caller.cookie['connect.sid']]=user;

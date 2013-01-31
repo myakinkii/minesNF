@@ -1,36 +1,11 @@
 function Client(){
-  this.binds={command:{0:'execCommand'},
-              message:{0:'sendPM'},
-              shout:{0:'sendPM'},
-              PM:{0:'sendPM'},
-              partyPM:{0:'sendPartyPM'},
-              user:{0:'sendPM',
-                    75:'kickUserFromParty'},
-              joinParty:{0:'joinParty'},
-              specPlayer:{0:'specPlayer'},
-              party:{0:'sendPartyPM',
-                     68:'dismissParty' }
-             };
-  this.key=0;
-  this.view={};
-  var self=this;
-  getTag('body').onkeydown=function(e){self.keyDown.call(self,e)};
-  getTag('body').onkeyup=function(e){self.keyUp.call(self,e)};
-  render.call(this,['#Main',
-                     ['#auth','#filter',
-                        ['select',{all:'all',coop:'coop',rank:'rank',versus:'versus'},
-                                  {'onchange':this.filterParty},0,'mode',
-                         'select',{small:'small',M:'medium',B:'big'},{'onchange':this.filterParty},0,'bSize',
-                         'select',{0:'*',1:1,2:2,3:3,4:4},{'onchange':this.filterParty},0,'maxPlayers',
-                         'a','+','addParty',null,{'onclick':this.addParty}],
-                      '#parties','#game','#chat',
-                        ['input',30,'','command',null,
-                        {'onkeypress':this.sendMessage},'br']],
-                    '#Side',['#players'],
-                   ],toTag('body'));
-  window.now.dispatchEvent=function(e){self.dispatchEvent.call(self,e)};
   this.initHandlers();
-}
+  var self=this;
+  window.now.dispatchEvent=function(e){self.dispatchEvent.call(self,e)};
+    render.call(this,['#warning',['span','warning','This site works with websockets only. '+
+       'If this message doesn\'t disappear, you are probably behind proxy '+
+       'or your browser doesnt\'t support websockets. Sorry.']],toTag('body'));
+};
 
 Client.prototype.sendMessage=function(e){
   var key=e.keyCode||e.which;
@@ -53,6 +28,7 @@ Client.prototype.dispatchEvent=function(e){
 
 Client.prototype.initHandlers=function(){
   this.eventHandlers={};
+  this.registerHandler('InitClient','auth',this.initClient,this);
   this.registerHandler('Authorize','auth',this.authorize,this);
   this.registerHandler('AuthFail','auth',this.authFail,this);
   this.registerHandler('Logoff','auth',this.logOff,this);
@@ -71,6 +47,40 @@ Client.prototype.initHandlers=function(){
   this.registerHandler('ShowResultRank','game',this.showResultRank,this);
   this.registerHandler('StartGame','game',this.startGame,this);
   this.registerHandler('EndGame','game',this.endGame,this);
+};
+
+Client.prototype.initClient=function(){
+  this.binds={command:{0:'execCommand'},
+              message:{0:'sendPM'},
+              shout:{0:'sendPM'},
+              PM:{0:'sendPM'},
+              partyPM:{0:'sendPartyPM'},
+              user:{0:'sendPM',
+                    75:'kickUserFromParty'},
+              joinParty:{0:'joinParty'},
+              specPlayer:{0:'specPlayer'},
+              party:{0:'sendPartyPM',
+                     68:'dismissParty' }
+             };
+  this.key=0;
+  this.view={};
+  var self=this;
+  getTag('body').onkeydown=function(e){self.keyDown.call(self,e)};
+  getTag('body').onkeyup=function(e){self.keyUp.call(self,e)};
+
+  getTag('body').removeChild(getId('warning'));
+  render.call(this,['#Main',
+                     ['#auth','#filter',
+                        ['select',{all:'all',coop:'coop',rank:'rank',versus:'versus'},
+                                  {'onchange':this.filterParty},0,'mode',
+                         'select',{small:'small',M:'medium',B:'big'},{'onchange':this.filterParty},0,'bSize',
+                         'select',{0:'*',1:1,2:2,3:3,4:4},{'onchange':this.filterParty},0,'maxPlayers',
+                         'a','+','addParty',null,{'onclick':this.addParty}],
+                      '#parties','#game','#chat',
+                        ['input',30,'','command',null,
+                        {'onkeypress':this.sendMessage},'br']],
+                    '#Side',['#players'],
+                   ],toTag('body'));
 };
 
 Client.prototype.authorize=function(auth){
