@@ -139,6 +139,11 @@ var tags={
   t.wrap=wrap;
   return t;
   },
+'p':function (t,cN){
+  var p=element('p',null,cN);
+  p.appendChild(text(t));
+  return p;
+  },
 'span':function (cN,t){
   var s=element('span',null,cN);
   s.appendChild(text(t));

@@ -21,6 +21,13 @@ div#Main
 /* width:640px;*/
  }
 
+p.message
+{
+ width:250px;
+ white-space: pre;
+ word-wrap: break-word;
+}
+
 div#auth a, a:active, a:visited
 {color: #000; text-decoration:none;}
 

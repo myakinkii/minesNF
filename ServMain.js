@@ -1,12 +1,12 @@
+var dbPath=process.env.NODE_DBPATH||'mines';
+var singleThread=process.env.NODE_SINGLETHREAD||0;
 var express = require("express");
 var nowjs = require('now');
 var http = require('http');
-//var MemStore = express.session.MemoryStore;
 var app = express();
-var db = require('mongojs').connect('mongodb://nodejitsu:5a6af20173a82beb78e93790a4f6435b@linus.mongohq.com:10033/nodejitsudb5924995727',['users']);
-//var db = require('mongojs').connect('mines',['users']);
+var db = require('mongojs').connect(dbPath,['users']);
 var Server = require('./Server.js');
-var server = new Server(db);
+var server = new Server(db,singleThread);
 
 app.configure(function(){
   app.use(express.cookieParser());
@@ -16,10 +16,10 @@ app.configure(function(){
 
 var httpServ = http.createServer(app);
 var everyone = nowjs.initialize(httpServ);
-httpServ.listen(80);
-//httpServ.listen(8080);
+httpServ.listen(8080);
 
-console.log('\nserver started in',server.singleThread?'single':'muliti','thread mode\n');
+console.log('\nserver started in',singleThread?'single':'muliti','thread mode');
+console.log('path to DB is: '+dbPath+'\n');
 
 everyone.connected(function(){server.initAuth(this.user)});
 everyone.disconnected(function(){server.userDisconnected(this.user)});

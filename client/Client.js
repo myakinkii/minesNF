@@ -111,6 +111,14 @@ Client.prototype.logIn=function(e){
     window.now.processCommand('/login '+this.view.login.value+' '+this.view.passwd.value);
 };
 
+Client.prototype.renderTextMessage=function(message,spanClass){
+  var mb=document.createElement('div');
+  mb.className='messageBlock';
+  render.call(this,['p',message,spanClass],mb);
+//  render.call(this,['span',spanClass,message],mb);
+  this.view.chat.insertBefore(mb,this.view.command.nextSibling);
+};
+
 Client.prototype.errorHandler=function(e){
   this.renderMessage(['error: ',e.text]);
 };
@@ -120,6 +128,7 @@ Client.prototype.systemMessageHandler=function(text){
 };
 
 Client.prototype.messageHandler=function(m){
+//  this.renderTextMessage(m.from+': '+m.text,m.type);
   this.renderMessage([{val:m.from,type:m.type},': ',m.text]);
 };
 

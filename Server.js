@@ -4,8 +4,8 @@ var Coop=require('./Coop.js');
 var Versus=require('./Versus.js');
 var Rank=require('./Rank.js');
 
-function Server(db){
-  this.singleThread=1;
+function Server(db,st){
+  this.singleThread=st;
   this.db=db;
   this.users={};
   this.tempUsers=0;
