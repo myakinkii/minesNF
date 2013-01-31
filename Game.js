@@ -3,6 +3,7 @@ var EventEmitter=require('events').EventEmitter;
 
 function Game(pars){
   if (pars){
+    this.multiThread=pars.multiThread;
     this.id=pars.id;
     this.mode=pars.mode;
     this.bSize=pars.modePars.bSize;
@@ -142,7 +143,6 @@ Game.prototype.logEvent=function(re){
 };
 
 Game.prototype.quitGame=function(user){
-  this.emitEvent('client',user,'game','EndGame');
   if (this.spectators[user]){
     delete this.spectators[user];
     this.emitEvent('server',null,null,'userLeftGame',
@@ -152,7 +152,8 @@ Game.prototype.quitGame=function(user){
       this.emitEvent('server',null,null,'childExit',
                      {partyId:this.id,name:this.name,
                       spectators:this.spectators,users:this.players});
-//      process.exit(0);
+      if (this.multiThread)
+        process.exit(0);
     } else {
       this.playersInGame--;
       delete this.players[user];
@@ -172,7 +173,8 @@ Game.prototype.endGame=function(){
   this.emitEvent('server',null,null,'childExit',
                  {partyId:this.id,name:this.name,
                   spectators:this.spectators,users:this.players});
-//  process.exit(0);
+  if (this.multiThread)
+    process.exit(0);
 };
 
 module.exports=Game;

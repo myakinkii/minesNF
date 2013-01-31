@@ -121,37 +121,47 @@ Client.prototype.logIn=function(e){
     window.now.processCommand('/login '+this.view.login.value+' '+this.view.passwd.value);
 };
 
-Client.prototype.renderTextMessage=function(message,spanClass){
+Client.prototype.renderTextMessage=function(m){
   var mb=document.createElement('div');
   mb.className='messageBlock';
-  render.call(this,['p',message,spanClass],mb);
-//  render.call(this,['span',spanClass,message],mb);
+  var message=[];
+  if (m.from)
+    message.push('a',m.from,null,m.type+'Object',{'onclick':function(e){this.handleClick.call(this,m,e)}});
+  if (m.to)
+    message.push('/ to ','a',m.to,null,m.type+'Object',{'onclick':function(e){this.handleClick.call(this,m,e)}});
+  if (m.text)
+    message.push('/: '+m.text)
+  var span=['span',m.type,null,message];
+  render.call(this,span,mb);
   this.view.chat.insertBefore(mb,this.view.command.nextSibling);
 };
 
-Client.prototype.errorHandler=function(e){
-  this.renderMessage(['error: ',e.text]);
+Client.prototype.errorHandler=function(m){
+  m.from='system';
+  m.type='error';
+  this.renderTextMessage(m);
 };
 
 Client.prototype.systemMessageHandler=function(text){
-  this.renderMessage(['system: ',text])
+  this.renderTextMessage({from:'system',type:'system',text:text});
 };
 
 Client.prototype.messageHandler=function(m){
-//  this.renderTextMessage(m.from+': '+m.text,m.type);
-  this.renderMessage([{val:m.from,type:m.type},': ',m.text]);
+  this.renderTextMessage(m);
 };
 
 Client.prototype.partyMessageHandler=function(m){
-  this.renderMessage(['party pm from ',{val:m.from,type:m.type},': ',m.text]);
+  this.renderTextMessage(m);
 };
 
 Client.prototype.privateMessageHandler=function(m){
-  if (this.user==m.to)
+  this.renderTextMessage(m);
+/*  if (this.user==m.to)
     var message=['pm from ',{val:m.from,type:'PM'},': ',m.text];
   else
     var message=['pm to ',{val:m.to,type:'PM'},': ',m.text];
   this.renderMessage(message);
+*/
 };
 
 Client.prototype.NAMessagesHandler=function(messages){
@@ -321,8 +331,11 @@ Client.prototype.dismissParty=function(o){
   window.now.processCommand('/dismiss');
 };
 
-Client.prototype.sendPM=function(o){
-  this.view.command.value='/to '+o.val+' ';
+Client.prototype.sendPM=function(m){
+  var to=m.from;
+  if (this.user==m.from && m.to)
+    to=m.to;
+  this.view.command.value='/to '+to+' ';
   this.view.command.focus();
 }
 

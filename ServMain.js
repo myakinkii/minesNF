@@ -35,8 +35,9 @@ server.on('event',function(e){
       server.userNA(e);
     });
   }
-  if (e.dst=='party')
+  if (e.dst=='party'){
     nowjs.getGroup(e.partyId).now.dispatchEvent(e);
+}
   if (e.dst=='everyone')
     everyone.now.dispatchEvent(e);
 });

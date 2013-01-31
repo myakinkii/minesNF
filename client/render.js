@@ -146,7 +146,8 @@ var tags={
   },
 'span':function (cN,t){
   var s=element('span',null,cN);
-  s.appendChild(text(t));
+  if (t)
+    s.appendChild(text(t));
   return s;
   },
 'img':function (src,alt,w,h){

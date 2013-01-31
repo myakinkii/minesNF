@@ -10,8 +10,7 @@ div#Side
  margin-left:20px;
  margin-top:5px;
 }
-div#Main
- {
+div#Main{
 /* position:absolute;*/
  position:relative;
  float:left;
@@ -21,9 +20,9 @@ div#Main
 /* width:640px;*/
  }
 
-p.message
+div.messageBlock
 {
- width:250px;
+ width:300px;
  white-space: pre;
  word-wrap: break-word;
 }
@@ -36,9 +35,6 @@ div#auth a:hover
 
 div.messageBlock a:hover
 {cursor:default; text-decoration:none;}
-
-a.leverObject
-{color: #363;}
 
 a.userObject
 {color: #999;}
@@ -63,6 +59,12 @@ a.shoutObject
 
 a.partyPMObject
 {color: #00f;}
+
+span.partyPM
+{
+ color: #035;
+ background-color: #e6e6fa;
+}
 
 table {
   border:1px solid black;
