@@ -1,12 +1,12 @@
 var dbPath=process.env.NODE_DBPATH||'mines';
 var singleThread=process.env.NODE_SINGLETHREAD||0;
-var express = require("express");
-var nowjs = require('now');
-var http = require('http');
-var app = express();
-var db = require('mongojs').connect(dbPath,['users']);
-var Server = require('./Server.js');
-var server = new Server(db,singleThread);
+var express=require("express");
+var nowjs=require('now');
+var http=require('http');
+var app=express();
+var db=require('mongojs').connect(dbPath,['users']);
+var Server=require('./Server.js');
+var server=new Server(db,singleThread);
 
 app.configure(function(){
   app.use(express.cookieParser());
@@ -14,8 +14,8 @@ app.configure(function(){
   app.use(express.static(__dirname+'/client'));
 });
 
-var httpServ = http.createServer(app);
-var everyone = nowjs.initialize(httpServ);
+var httpServ=http.createServer(app);
+var everyone=nowjs.initialize(httpServ,{socketio:{transports:['websocket']}});
 httpServ.listen(8080);
 
 console.log('\nserver started in',singleThread?'single':'muliti','thread mode');
