@@ -67,7 +67,6 @@ Client.prototype.initClient=function(){
   var self=this;
   getTag('body').onkeydown=function(e){self.keyDown.call(self,e)};
   getTag('body').onkeyup=function(e){self.keyUp.call(self,e)};
-
   getTag('body').removeChild(getId('warning'));
   render.call(this,['#Main',
                      ['#auth','#filter',

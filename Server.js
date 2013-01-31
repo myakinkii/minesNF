@@ -82,6 +82,11 @@ Server.prototype.killPlayerByTimeout=function(user){
   console.log(user+' killed by timeout');
 };
 
+Server.prototype.userConnected=function(caller){
+  this.sendEvent('clientId',caller.clientId,'auth','InitClient');
+  this.initAuth(caller);
+};
+
 Server.prototype.userDisconnected=function(caller){
   if(this.connectSids[caller.cookie['connect.sid']]){
     var user=this.connectSids[caller.cookie['connect.sid']];
@@ -130,14 +135,12 @@ Server.prototype.initUser=function(caller,user,flag){
   if (!this.userIsOnline(user)){
     this.users[user]={state:'online',clientId:caller.clientId};
     console.log(user+' has logged in');
-    this.sendEvent('client',user,'auth','InitClient');
     this.sendEvent('everyone',null,'system','Message',user+' has logged in.');
     this.sendEvent('client',user,'chat','Welcome');
   } else {
     this.sendEvent('client',user,'auth','Logoff','Someone kicked your ass');
     this.users[user].clientId=caller.clientId;
     console.log(user+' connected');
-    this.sendEvent('client',user,'auth','InitClient');
     if (this.users[user].partyId)
       this.sendEvent('party',this.users[user].partyId,'system','Message',user+' connected');
   }
@@ -503,6 +506,9 @@ Server.prototype.userNA=function(e){
 
 Server.prototype.sendEvent=function(dst,dstId,contextId,func,arg){
   var e={dst:dst,contextId:contextId,func:func,arg:arg}
+  if (dst=='clientId'){
+    e.clientId=dstId;
+  }
   if (dst=='client'){
     e.usr=dstId;
     e.clientId=this.users[dstId].clientId;

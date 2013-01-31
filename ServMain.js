@@ -21,13 +21,13 @@ httpServ.listen(8080);
 console.log('\nserver started in',singleThread?'single':'muliti','thread mode');
 console.log('path to DB is: '+dbPath+'\n');
 
-everyone.connected(function(){server.initAuth(this.user)});
+everyone.connected(function(){server.userConnected(this.user)});
 everyone.disconnected(function(){server.userDisconnected(this.user)});
 everyone.now.initAuth = function(){server.initAuth(this.user)};
 everyone.now.processCommand = function(s){server.processCommand(this.user,s)};
 
 server.on('event',function(e){
-  if (e.dst=='client'){
+  if (e.dst=='client' || e.dst=='clientId'){
     nowjs.getClient(e.clientId,function(){
       if(this.now){
         this.now.dispatchEvent(e);
