@@ -60,14 +60,16 @@ Server.prototype.userIsOnline=function(user){
 };
 
 Server.prototype.userDisconnected=function(caller){
-  var user=this.connectSids[caller.cookie['connect.sid']];
-  if (this.users[user].type=='registered' || this.users[user].state!='online')
-    this.users[user].NA=1;
-  else {
-    this.deleteUser(user);
-    this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
+  if(this.connectSids[caller.cookie['connect.sid']]){
+    var user=this.connectSids[caller.cookie['connect.sid']];
+    if (this.users[user].type=='registered' || this.users[user].state!='online')
+      this.users[user].NA=1;
+    else {
+      this.deleteUser(user);
+      this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
+    }
+    console.log(user+' disconnected');
   }
-  console.log(user+' disconnected');
 };
 
 Server.prototype.showHelp=function(user){
