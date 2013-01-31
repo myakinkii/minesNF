@@ -114,7 +114,9 @@ Server.prototype.showHelp=function(user){
 Server.prototype.initAuth=function(caller){
   if (this.connectSids[caller.cookie['connect.sid']]){
     var user=this.connectSids[caller.cookie['connect.sid']];
-    this.checkRegisteredUser(user,caller);
+    //this.checkRegisteredUser(user,caller);
+    console.log(this.users[user]+' we seem to have met each other');
+    this.initUser(caller,user,this.users[user].type);
   } else {
     var user='user'+this.tempUsers++;
     this.initUser(caller,user,'temp');
