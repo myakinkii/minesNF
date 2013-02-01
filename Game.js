@@ -9,6 +9,7 @@ function Game(pars){
     this.bSize=pars.modePars.bSize;
     this.name=pars.name;
     this.players=pars.users;
+    this.minPlayers=pars.minPlayers;
     this.spectators={};
     this.partyLeader=pars.leader;
     this.playersInGame=pars.curPlayers;
@@ -51,6 +52,7 @@ Game.prototype.addSpec=function(user){
   this.emitEvent('party',this.id,'system','Message',
                  user+' joined '+this.name+' as a spectator');
   this.initGUI(user);
+  console.log(user+' joined '+this.name+' as a spectator');
 };
 
 Game.prototype.initGUI=function(user){
@@ -145,23 +147,23 @@ Game.prototype.logEvent=function(re){
 Game.prototype.quitGame=function(user){
   if (this.spectators[user]){
     delete this.spectators[user];
-    this.emitEvent('server',null,null,'userLeftGame',
+    this.emitEvent('server',null,null,'userExitGame',
                    {partyId:this.id,name:this.name,user:user});
   } else {
-    if (this.playersInGame==1){
-      this.emitEvent('server',null,null,'childExit',
+    this.playersInGame--;
+    if (this.playersInGame<this.minPlayers){
+      this.emitEvent('server',null,null,'gameExit',
                      {partyId:this.id,name:this.name,
                       spectators:this.spectators,users:this.players});
       if (this.multiThread)
         process.exit(0);
     } else {
-      this.playersInGame--;
       delete this.players[user];
       for (var i in this.players){
         this.partyLeader=i
         break;
       }
-      this.emitEvent('server',null,null,'userLeftGame',
+      this.emitEvent('server',null,null,'userExitGame',
                      {partyId:this.id,name:this.name,user:user});
     }
   }

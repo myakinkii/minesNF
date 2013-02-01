@@ -31,7 +31,7 @@ Client.prototype.initHandlers=function(){
   this.registerHandler('InitClient','auth',this.initClient,this);
   this.registerHandler('Authorize','auth',this.authorize,this);
   this.registerHandler('AuthFail','auth',this.authFail,this);
-  this.registerHandler('Logoff','auth',this.logOff,this);
+  this.registerHandler('Reauth','auth',this.reAuthorize,this);
   this.registerHandler('Error','system',this.errorHandler,this);
   this.registerHandler('Message','system',this.systemMessageHandler,this);
   this.registerHandler('Message','chat',this.messageHandler,this);
@@ -107,17 +107,15 @@ Client.prototype.authFail=function(message){
   this.view.passwd.value='';
 };
 
-Client.prototype.logOff=function(message){
-  if (message) 
-    this.renderMessage(message);
-  this.view.auth.removeChild(this.view.auth.firstChild);
+Client.prototype.reAuthorize=function(){
   window.now.initAuth();
 };
 
 Client.prototype.logIn=function(e){
   var key=e.keyCode||e.which;
-  if(key==13)
+  if(key==13){
     window.now.processCommand('/login '+this.view.login.value+' '+this.view.passwd.value);
+  }
 };
 
 Client.prototype.renderTextMessage=function(m){
@@ -202,9 +200,8 @@ Client.prototype.playersHandler=function(players){
     this.view.players.removeChild(this.view.players.firstChild)
   var message=[];
   for (var i in players){
-    var p=players[i];
     message.push({val:i,type:'user'});
-    if (p.state=='game')  
+    if (players[i]=='game')  
       message.push(' ',{val:'>>',user:i,type:'specPlayer'},'\n');
     message.push('\n');
   }

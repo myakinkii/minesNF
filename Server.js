@@ -8,6 +8,7 @@ function Server(db,st){
   this.singleThread=st;
   this.db=db;
   this.users={};
+  this.playersList={};
   this.tempUsers=0;
   this.connectSids={};
   this.NaMessages={};
@@ -56,10 +57,6 @@ console.log('Server');
 };
 //Coop.prototype.foo()
 
-Server.prototype.userIsOnline=function(user){
-  return this.users[user]?true:false;
-};
-
 Server.prototype.killPlayerByTimeout=function(user){
   if (this.users[user].partyId)
    this.sendEvent('party',this.users[user].partyId,'system','Message',user+' killed by timeout');
@@ -78,7 +75,7 @@ Server.prototype.killPlayerByTimeout=function(user){
           }
         },50);
   }
-  this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
+  this.updatePlayersList();
   console.log(user+' killed by timeout');
 };
 
@@ -93,13 +90,11 @@ Server.prototype.userDisconnected=function(caller){
     if (this.users[user].type=='registered' || this.users[user].state!='online'){
       this.users[user].NA=1;
       var self=this;
-      this.killTimers[user]=setTimeout(function(){self.killPlayerByTimeout.call(self,user)},10000);
+      this.killTimers[user]=setTimeout(function(){self.killPlayerByTimeout.call(self,user)},30000);
       if (this.users[user].partyId)
         this.sendEvent('party',this.users[user].partyId,'system','Message',user+' disconnected');
-    } else {
+    } else
       this.deleteUser(user);
-      this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
-    }
     console.log(user+' disconnected');
   }
 };
@@ -114,58 +109,54 @@ Server.prototype.showHelp=function(user){
 Server.prototype.initAuth=function(caller){
   if (this.connectSids[caller.cookie['connect.sid']]){
     var user=this.connectSids[caller.cookie['connect.sid']];
-    //this.checkRegisteredUser(user,caller);
-    console.log(this.users[user]+' we seem to have met each other');
     this.initUser(caller,user,this.users[user].type);
   } else {
     var user='user'+this.tempUsers++;
+    this.initNewUser(user);
     this.initUser(caller,user,'temp');
+    this.sendEvent('client',user,'chat','Welcome');
   }
 };
 
-Server.prototype.checkRegisteredUser=function(user,caller){
-  var self=this;
-  this.db.users.find({user:user},{user:1},function(err,res){
-    if(res[0])
-      self.initUser.call(self,caller,user,'registered');
-    else 
-      self.initUser.call(self,caller,user,'temp');
-  });
+Server.prototype.initNewUser=function(user){
+  this.users[user]={};
+  this.playersList[user]={};
+  this.changeUserState(user,'online');
+  this.updatePlayersList();
 };
 
 Server.prototype.initUser=function(caller,user,flag){
-  if (!this.userIsOnline(user)){
-    this.users[user]={state:'online',clientId:caller.clientId};
-    console.log(user+' has logged in');
-    this.sendEvent('everyone',null,'system','Message',user+' has logged in.');
-    this.sendEvent('client',user,'chat','Welcome');
-  } else {
-    this.sendEvent('client',user,'auth','Logoff','Someone kicked your ass');
-    this.users[user].clientId=caller.clientId;
-    console.log(user+' connected');
-    if (this.users[user].partyId)
-      this.sendEvent('party',this.users[user].partyId,'system','Message',user+' connected');
-  }
-
+  this.users[user].clientId=caller.clientId;
   this.connectSids[caller.cookie['connect.sid']]=user;
   this.users[user].connectSid=caller.cookie['connect.sid'];
   this.users[user].type=flag;
   this.users[user].NA=0;
+
   if (this.killTimers[user]){
     clearTimeout(this.killTimers[user]);
     delete this.killTimers[user];
   }
+
+  if (flag=='registered')
+    this.sendEvent('everyone',null,'system','Message',user+' connected.');
+
   this.sendEvent('client',user,'auth','Authorize',{user:user,flag:flag});
   this.sendEvent('client',user,'chat','UpdateParties',this.parties);
+
   if (this.NaMessages[user]){
     this.sendEvent('client',user,'chat','NAMessages',this.NaMessages[user]);
     delete this.NaMessages[user];
   }
-  if (this.users[user].partyId)
+
+  if (this.users[user].partyId){
+    this.sendEvent('party',this.users[user].partyId,'system','Message',user+' connected');
     this.emit('addToGroup',this.users[user].clientId,this.users[user].partyId);
+  }
+
   if (this.users[user].state=='game')
     this.execGameCommand(this.users[user].partyId,user,'initGUI');
-  this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
+
+  console.log(user+'.'+flag+' connected');
 };
 
 Server.prototype.logIn=function(caller,user,passwd){
@@ -175,16 +166,20 @@ Server.prototype.logIn=function(caller,user,passwd){
     this.db.users.find({user:user},{user:1,passwd:1},function(err,res){
       if(res[0]){
         if (res[0].passwd==passwd){
-          self.logOff.call(self,callerName);
-          self.deleteUser.call(self,callerName);
+          self.logOff.call(self,callerName,1);
+          self.logOff.call(self,user);
+          self.initNewUser.call(self,user);
           self.initUser.call(self,caller,user,'registered');
-        }  else
+        }  else{
            self.sendEvent('client',callerName,'auth','AuthFail',
              'Auth for user "'+user+'" failed or user is already registered.');
+           self.initAuth(caller);
+        }
       } else {
         self.db.users.insert({user:user,passwd:passwd},function(err){
           if (!err){
-            self.logOff.call(self,callerName);
+            self.logOff.call(self,callerName,1);
+            self.initNewUser.call(self,user);
             self.initUser.call(self,caller,user,'registered');
           }
         });
@@ -193,22 +188,31 @@ Server.prototype.logIn=function(caller,user,passwd){
   }
 };
 
+Server.prototype.updatePlayersList=function(){
+  this.sendEvent('everyone',null,'chat','UpdatePlayers',this.playersList);
+};
+
+Server.prototype.updatePartiesList=function(){
+  this.sendEvent('everyone',null,'chat','UpdateParties',this.parties);
+};
+
 Server.prototype.deleteUser=function(user){
   delete this.connectSids[this.users[user].connectSid];
   delete this.users[user];
+  delete this.playersList[user];
+  this.updatePlayersList();
 };
 
-Server.prototype.logOff=function(user){
-  if (this.users[user].type!='temp'){
+Server.prototype.logOff=function(user,noReauth){
+//      this.sendEvent('client',user,'system','Error',{text:'Someone kicked your ass'});
     if (this.users[user].state=='party')
       this.leaveParty(user);
-//      this.dismissParty(this.users[user].partyId);
-    this.sendEvent('client',user,'auth','Logoff');
-    this.sendEvent('everyone',null,'system','Message',user+' has logged off');
-    this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
+    if (this.users[user].type=='registered')
+      this.sendEvent('everyone',null,'system','Message',user+' has logged off');
+    if (!noReauth)
+      this.sendEvent('client',user,'auth','Reauth');
     this.deleteUser(user);
-    console.log(user+' has logged off');
-  } 
+    console.log(user+' disconnected');
 };
 
 Server.prototype.sendPrivateMessage=function(user,userTo){
@@ -333,12 +337,13 @@ Server.prototype.dismissParty=function(user){
       var p=this.parties[pId];
       for(var u in p.users){
         this.emit('removeFromGroup',this.users[u].clientId,pId);
-        this.users[u].state='online';
+        this.changeUserState(u,'online');
         delete this.users[u].partyId;
         this.sendEvent('client',u,'system','Message','Party dismissed.');
       }
       delete this.parties[pId];
-      this.sendEvent('everyone',null,'chat','UpdateParties',this.parties);
+      this.updatePLayersList();
+      this.updatePartiesList();
     }
   }
 };
@@ -354,10 +359,11 @@ Server.prototype.leaveParty=function(user){
         p.curPlayers--;
         delete p.users[user];
         delete this.users[user].partyId;
-        this.users[user].state='online';
+        this.changeUserState(user,'online');
+        this.updatePLayersList();
+        this.updatePartiesList();
         this.sendEvent('client',user,'system','Message','You left party.');
         this.emit('removeFromGroup',id,pId);
-        this.sendEvent('everyone',null,'chat','UpdateParties',this.parties);
     }
   }    
 }
@@ -371,10 +377,11 @@ Server.prototype.kickPlayerFromParty=function(user,userToKick){
       if (p.users[userToKick] && user!=userToKick){
         p.curPlayers--;
         delete p.users[userToKick];
-        this.users[userToKick].state='online';
+        this.changeUserState(userToKick,'online');
+        this.updatePlayersList();
+        this.updatePartiesList();
         this.sendEvent('client',user,'system','Message','You were kicked from party.');
         this.emit('removeFromGroup',kickId,pId);
-        this.sendEvent('everyone',null,'chat','UpdateParties',this.parties);
       }
   }
 };
@@ -384,12 +391,14 @@ Server.prototype.addPlayerToParty=function(user,pId){
   if (this.users[user].state!='party'){
     p.users[user]=1;
     p.curPlayers++;
-    this.users[user].state='party';
+    this.changeUserState(user,'party');
     this.users[user].partyId=pId;
     this.emit('addToGroup',this.users[user].clientId,pId);
         this.sendEvent('client',user,'system','Message','You have joined the party.');
-    if (p.maxPlayers>1)
-      this.sendEvent('everyone',null,'chat','UpdateParties',this.parties);
+    if (p.maxPlayers>1){
+      this.updatePlayersList();
+      this.updatePartiesList();
+    }
     if (p.curPlayers==p.maxPlayers)
       this.createGame(p);
   } else
@@ -402,11 +411,11 @@ Server.prototype.addSpectator=function(spectator,user){
     if (this.users[user]){
       if (this.users[user].state=='game'){
         var pId=this.users[user].partyId;
-        this.users[spectator].state='game';
+        this.changeUserState(spectator,'game');
+        this.updatePlayersList();
         this.users[spectator].partyId=pId;
         this.execGameCommand(pId,spectator,'addSpectator');
         this.emit('addToGroup',this.users[spectator].clientId,pId);
-        this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
       } else
       this.sendEvent('client',user,'system','Error',
                       {text:user+' not in a game now'});
@@ -428,23 +437,26 @@ Server.prototype.createGame=function(args){
       profiles[res[i].user]=res[i].profile;
     args.profiles=profiles;
     args.modePars=self.modes[args.mode].modePars;
+    args.minPlayers=self.modes[args.mode].min;
     for (var u in args.users){
-      self.users[u].state='game';
+      self.changeUserState.call(self,u,'game');
       self.sendEvent('client',u,'system','Message',args.name+' started.');
       console.log(u+' has joined the game '+ args.name);
     }
 
-  if (self.singleThread)
-    self.games[args.id]=new self.modes[args.mode].constr(args);
-  else
-    self.games[args.id]=fork(__dirname+'/GameWrapper.js',[JSON.stringify(args)]);
-  self.games[args.id].on('message',function(e){
-    self.getGameCommandResult.call(self,e)
-  });
-  self.execGameCommand(args.id,null,'startBoard');
+    if (self.singleThread)
+      self.games[args.id]=new self.modes[args.mode].constr(args);
+    else
+      self.games[args.id]=fork(__dirname+'/GameWrapper.js',[JSON.stringify(args)]);
 
-    self.sendEvent('everyone',null,'chat','UpdateParties',self.parties);
-    self.sendEvent('everyone',null,'chat','UpdatePlayers',self.users);
+    self.games[args.id].on('message',function(e){
+      self.getGameCommandResult.call(self,e)
+    });
+
+    self.execGameCommand.call(self,args.id,null,'startBoard');
+
+    self.updatePlayersList.call(self);
+    self.updatePartiesList.call(self);
     console.log('Game '+args.name+' created');
   });
 
@@ -470,29 +482,35 @@ Server.prototype.coopGameResult=function(result){
 //console.log(result);
 };
 
-Server.prototype.resetUserState=function(users,game){
+Server.prototype.changeUserState=function(user,state){
+  this.users[user].state=state;
+  this.playersList[user].state=state;
+};
+
+Server.prototype.usersLeaveGame=function(users,game){
   for (var u in users){
-    this.users[u].state='online';
+    this.changeUserState(u,'online');
     delete this.users[u].partyId;
     this.sendEvent('client',u,'game','EndGame');
-    this.sendEvent('client',u,'system','Message','You have left '+game);
+    this.sendEvent('client',u,'system','Message','You have left '+game.name);
+    this.emit('removeFromGroup',this.users[u].clientId,game.partyId);
+    console.log(u+' left '+game.name);
   }
 };
 
-Server.prototype.userLeftGame=function(e){
+Server.prototype.userExitGame=function(e){
   var usr={};
   usr[e.user]=1;
-  this.emit('removeFromGroup',this.users[e.user].clientId,e.partyId);
   this.sendEvent('party',e.partyId,'system','Message',e.user+' left game');
-  this.resetUserState(usr,e.name);
-  this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
+  this.usersLeaveGame(usr,e);
+  this.updatePlayersList();
 };
 
-Server.prototype.childExit=function(e){
-  this.resetUserState(e.users,e.name)
-  this.resetUserState(e.spectators,e.name)
+Server.prototype.gameExit=function(e){
+  this.usersLeaveGame(e.users,e)
+  this.usersLeaveGame(e.spectators,e)
+  this.updatePlayersList();
   delete this.games[e.partyId];
-  this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
   console.log('Game '+e.name+' returned 0');
 };
 
