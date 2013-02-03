@@ -57,28 +57,6 @@ console.log('Server');
 };
 //Coop.prototype.foo()
 
-Server.prototype.killPlayerByTimeout=function(user){
-  if (this.users[user].partyId)
-   this.sendEvent('party',this.users[user].partyId,'system','Message',user+' killed by timeout');
-  if (this.users[user].state=='party')
-    this.leaveParty(user);
-  if (this.users[user].state=='game')
-    this.execGameCommand(this.users[user].partyId,user,'quitGame');
-  if (this.users[user].state=='online')  // in singleThread mode always true
-    this.deleteUser(user);
-  else { // because in multithread mode we cannot call deleteUser synchronously
-    var self=this;
-    var wait=setInterval(function(){
-          if (self.users[user].state=='online'){
-            self.deleteUser.call(self,user);
-            clearInterval(wait);
-          }
-        },50);
-  }
-  this.updatePlayersList();
-  console.log(user+' killed by timeout');
-};
-
 Server.prototype.userConnected=function(caller){
   this.sendEvent('clientId',caller.clientId,'auth','InitClient');
   this.initAuth(caller);
@@ -94,8 +72,17 @@ Server.prototype.userDisconnected=function(caller){
       if (this.users[user].partyId)
         this.sendEvent('party',this.users[user].partyId,'system','Message',user+' disconnected');
     } else
-      this.deleteUser(user);
+      this.systemLogoff(user);
     console.log(user+' disconnected');
+  }
+};
+
+Server.prototype.killPlayerByTimeout=function(user){
+  if (this.users[user]){
+    if (this.users[user].partyId)
+     this.sendEvent('party',this.users[user].partyId,'system','Message',user+' killed by timeout');
+    this.systemLogoff(user)
+    console.log(user+' klled by timeout');
   }
 };
 
@@ -122,7 +109,6 @@ Server.prototype.initNewUser=function(user){
   this.users[user]={};
   this.playersList[user]={};
   this.changeUserState(user,'online');
-  this.updatePlayersList();
 };
 
 Server.prototype.initUser=function(caller,user,flag){
@@ -156,7 +142,45 @@ Server.prototype.initUser=function(caller,user,flag){
   if (this.users[user].state=='game')
     this.execGameCommand(this.users[user].partyId,user,'initGUI');
 
+  this.updatePlayersList();
   console.log(user+'.'+flag+' connected');
+};
+
+Server.prototype.kickUser=function(user){
+  if (this.users[user]){
+    this.sendEvent('client',user,'system','Error',{text:'Someone kicked your ass'});
+    this.systemLogoff(user,1);
+  }
+};
+
+Server.prototype.logOff=function(user){
+  if (this.users[user].type=='registered'){
+    this.sendEvent('everyone',null,'system','Message',user+' has logged off.');
+    this.systemLogoff(user,1);
+    console.log(user+' has logged off.');
+  }
+};
+
+Server.prototype.systemLogoff=function(user,reauth){
+  var clientId=this.users[user].clientId;
+  if (this.users[user].state=='party')
+    this.leaveParty(user);
+  if (this.users[user].state=='game')
+    this.execGameCommand(this.users[user].partyId,user,'quitGame');
+  if (this.users[user].state=='online')  // in singleThread mode always true
+    this.deleteUser(user);
+  else { // because in multithread mode we cannot call deleteUser synchronously
+    var self=this;
+    var wait=setInterval(function(){
+          if (self.users[user].state=='online'){
+            self.deleteUser.call(self,user);
+            clearInterval(wait);
+          }
+        },50);
+  }
+  this.updatePlayersList();
+  if (reauth)
+    this.sendEvent('clientId',clientId,'auth','Reauth');
 };
 
 Server.prototype.logIn=function(caller,user,passwd){
@@ -166,8 +190,8 @@ Server.prototype.logIn=function(caller,user,passwd){
     this.db.users.find({user:user},{user:1,passwd:1},function(err,res){
       if(res[0]){
         if (res[0].passwd==passwd){
-          self.logOff.call(self,callerName,1);
-          self.logOff.call(self,user);
+          self.kickUser.call(self,user);
+          self.systemLogoff.call(self,callerName);
           self.initNewUser.call(self,user);
           self.initUser.call(self,caller,user,'registered');
         }  else{
@@ -178,7 +202,7 @@ Server.prototype.logIn=function(caller,user,passwd){
       } else {
         self.db.users.insert({user:user,passwd:passwd},function(err){
           if (!err){
-            self.logOff.call(self,callerName,1);
+            self.systemLogoff.call(self,callerName);
             self.initNewUser.call(self,user);
             self.initUser.call(self,caller,user,'registered');
           }
@@ -201,18 +225,6 @@ Server.prototype.deleteUser=function(user){
   delete this.users[user];
   delete this.playersList[user];
   this.updatePlayersList();
-};
-
-Server.prototype.logOff=function(user,noReauth){
-//      this.sendEvent('client',user,'system','Error',{text:'Someone kicked your ass'});
-    if (this.users[user].state=='party')
-      this.leaveParty(user);
-    if (this.users[user].type=='registered')
-      this.sendEvent('everyone',null,'system','Message',user+' has logged off');
-    if (!noReauth)
-      this.sendEvent('client',user,'auth','Reauth');
-    this.deleteUser(user);
-    console.log(user+' disconnected');
 };
 
 Server.prototype.sendPrivateMessage=function(user,userTo){

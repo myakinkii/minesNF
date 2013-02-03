@@ -201,7 +201,7 @@ Client.prototype.playersHandler=function(players){
   var message=[];
   for (var i in players){
     message.push({val:i,type:'user'});
-    if (players[i]=='game')  
+    if (players[i].state=='game')  
       message.push(' ',{val:'>>',user:i,type:'specPlayer'},'\n');
     message.push('\n');
   }
