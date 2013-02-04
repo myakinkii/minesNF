@@ -147,10 +147,12 @@ Server.prototype.initUser=function(caller,user,flag){
 };
 
 Server.prototype.kickUser=function(user){
-  if (this.users[user]){
-    this.sendEvent('client',user,'system','Error',{text:'Someone kicked your ass'});
-    this.systemLogoff(user,1);
-  }
+  this.sendEvent('client',user,'system','Error',{text:'Someone kicked your ass'});
+  if (this.users[user].state=='game');
+    this.sendEvent('client',user,'game','EndGame');
+  delete this.connectSids[this.users[user].connectSid];
+  this.sendEvent('client',user,'auth','Reauth');
+  console.log(user+' kicked');
 };
 
 Server.prototype.logOff=function(user){
@@ -185,14 +187,17 @@ Server.prototype.systemLogoff=function(user,reauth){
 
 Server.prototype.logIn=function(caller,user,passwd){
   var callerName=this.connectSids[caller.cookie['connect.sid']];
-  if (user!='' && passwd!=''){
+  var reg=/(^user\d+$)/ig; // to check if temp names e.g. user0 being used
+  if (user!='' && passwd!='' && !reg.test(user)){
     var self=this;
     this.db.users.find({user:user},{user:1,passwd:1},function(err,res){
       if(res[0]){
         if (res[0].passwd==passwd){
-          self.kickUser.call(self,user);
           self.systemLogoff.call(self,callerName);
-          self.initNewUser.call(self,user);
+          if (self.users[user])
+            self.kickUser.call(self,user);
+          else
+            self.initNewUser.call(self,user);
           self.initUser.call(self,caller,user,'registered');
         }  else{
            self.sendEvent('client',callerName,'auth','AuthFail',
@@ -232,7 +237,7 @@ Server.prototype.sendPrivateMessage=function(user,userTo){
     this.sendEvent('client',user,'system','Error',
                     {text:'Such a stupid thing.'});
   else {
-    if (this.userIsOnline(userTo)){
+    if (this.users[userTo]){
       var mes=Array.prototype.slice.call(arguments,2).join(' ');
       this.sendEvent('client',user,'chat','PrivateMessage',
                      {from:user,to:userTo,type:'PM',text:mes});
@@ -354,7 +359,7 @@ Server.prototype.dismissParty=function(user){
         this.sendEvent('client',u,'system','Message','Party dismissed.');
       }
       delete this.parties[pId];
-      this.updatePLayersList();
+      this.updatePlayersList();
       this.updatePartiesList();
     }
   }

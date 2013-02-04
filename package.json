@@ -8,13 +8,13 @@
   "scripts": {
     "start": "ServMain.js"
   },
-  "version": "0.0.2",
+  "version": "0.0.2-7",
   "engines": {
     "node": "0.8.x"
   },
   "dependencies": {
-    "express": "*",
-    "now": "*",
-    "mongojs": "*"
+    "express": "3.0.x",
+    "now": "0.8.x",
+    "mongojs": "0.4.6"
   }
 }
