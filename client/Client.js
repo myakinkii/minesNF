@@ -4,7 +4,8 @@ function Client(){
   window.now.dispatchEvent=function(e){self.dispatchEvent.call(self,e)};
     render.call(this,['#warning',['span','warning','This site works with websockets only. '+
        'If this message doesn\'t disappear, you are probably behind proxy '+
-       'or your browser doesnt\'t support websockets. Sorry.']],toTag('body'));
+       'or your browser doesnt\'t support websockets. Sorry.',
+        'br','link','MinesNf@Github','https://github.com/myakinkii/minesNF']],toTag('body'));
 };
 
 Client.prototype.sendMessage=function(e){
@@ -74,7 +75,7 @@ Client.prototype.initClient=function(){
                                   {'onchange':this.filterParty},0,'mode',
                          'select',{small:'small',M:'medium',B:'big'},{'onchange':this.filterParty},0,'bSize',
                          'select',{0:'*',1:1,2:2,3:3,4:4},{'onchange':this.filterParty},0,'maxPlayers',
-                         'a','+','addParty',null,{'onclick':this.addParty}],
+                         'a','add','addParty',null,{'onclick':this.addParty}],
                       '#parties','#game','#chat',
                         ['input',30,'','command',null,
                         {'onkeypress':this.sendMessage},'br']],
@@ -202,7 +203,7 @@ Client.prototype.playersHandler=function(players){
   for (var i in players){
     message.push({val:i,type:'user'});
     if (players[i].state=='game')  
-      message.push(' ',{val:'>>',user:i,type:'specPlayer'},'\n');
+      message.push(' ',{val:'>>',user:i,type:'specPlayer'});
     message.push('\n');
   }
   if (message.length){

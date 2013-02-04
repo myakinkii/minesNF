@@ -1,6 +1,4 @@
-=======
-http://minesnf.com - cooperative non-flagging minesweeper
-=======
+### http://minesnf.com - cooperative non-flagging minesweeper
 
 ##TODO
 * message span colors and message rendering
