@@ -1,8 +1,7 @@
 ### http://minesnf.com - cooperative non-flagging minesweeper
 
 ##TODO
-* message span colors and message rendering
+* message span colors
 * separate players and clients
-* add  filter parties
+* filter parties
 * mute
-* db profiles

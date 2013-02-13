@@ -3,10 +3,13 @@ var EventEmitter=require('events').EventEmitter;
 
 function Game(pars){
   if (pars){
+    this.profiles={};
+    for (var u in pars.profiles)
+      this.profiles[u]=pars.profiles[u];
     this.multiThread=pars.multiThread;
     this.id=pars.id;
     this.mode=pars.mode;
-    this.bSize=pars.modePars.bSize;
+    this.bSize=pars.board.bSize;
     this.name=pars.name;
     this.players=pars.users;
     this.minPlayers=pars.minPlayers;
@@ -15,15 +18,11 @@ function Game(pars){
     this.playersInGame=pars.curPlayers;
     this.penalty={};
     this.resetScore();
-    this.board=new Board(pars.name,pars.modePars.board);
+    this.board=new Board(pars.name,pars.board);
   }
 }
 
 Game.prototype=EventEmitter.prototype;
-
-Game.prototype.foo=function(){
-console.log('Game');
-};
 
 Game.prototype.emitEvent=function(dst,dstId,contextId,func,arg){
   this.emit('message',{dst:dst,

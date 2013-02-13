@@ -2,13 +2,12 @@
   "name": "minesnf",
   "subdomain": "minesnf",
   "domains": [
-    "minesnf.com",
-    "www.minesnf.com"
+    "minesnf.com"
   ],
   "scripts": {
     "start": "ServMain.js"
   },
-  "version": "0.0.2-9",
+  "version": "0.0.3",
   "engines": {
     "node": "0.8.x"
   },

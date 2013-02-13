@@ -1,8 +1,5 @@
 var fork = require('child_process').fork;
 var EventEmitter=require('events').EventEmitter;
-var Coop=require('./Coop.js');
-var Versus=require('./Versus.js');
-var Rank=require('./Rank.js');
 
 function Server(db,st){
   this.singleThread=st;
@@ -16,46 +13,13 @@ function Server(db,st){
   this.partyCounter=1;
   this.parties={};
   this.games={};
-  var smallBoard={r:8,c:8,b:10};
-  var mediumBoard={r:16,c:16,b:40};
-  var largeBoard={c:30,r:16,b:99};
-  this.modes={
-     coop:{constr:Coop,min:2,max:2,modePars:{bSize:'small',board:smallBoard}},
-     coopM:{constr:Coop,min:2,max:3,modePars:{bSize:'medium',board:mediumBoard}},
-     coopB:{constr:Coop,min:2,max:4,modePars:{bSize:'large',board:largeBoard}},
-     versus:{constr:Versus,min:2,max:2,modePars:{bSize:'small',board:smallBoard}},
-     versusM:{constr:Versus,min:2,max:3,modePars:{bSize:'medium',board:mediumBoard}},
-     versusB:{constr:Versus,min:2,max:4,modePars:{bSize:'large',board:largeBoard}},
-     rank:{constr:Rank,min:1,max:1,modePars:{bSize:'small',board:smallBoard}},
-     rankM:{constr:Rank,min:1,max:1,modePars:{bSize:'medium',board:mediumBoard}},
-     rankB:{constr:Rank,min:1,max:1,modePars:{bSize:'large',board:largeBoard}}
-    };
-  this.gameCommands={
-    '/check':{f:'checkCell',d:'/check - check cell <x> <y>'},
-    '/quit':{f:'quitGame',d:'/quit - quit current game'}
-  };
-  this.chatCommands={
-    '/to':{f:'sendPrivateMessage',d:'/to <player> <text> - send private message'},
-    '/join':{f:'joinParty',d:'/join <partyId> - join party'},
-    '/spec':{f:'addSpectator',d:'/spec <user> - spectate user'},
-    '/leave':{f:'leaveParty',d:'/leave - leave party'},
-    '/create':{f:'createParty',d:'/create <template> <maxplayers> - create party'},
-//  '/publish':{f:'publishParty',d:'/publish - publish party you are in info to players'},
-    '/dismiss':{f:'dismissParty',d:'/dismiss - dismiss a party where you are a leader'},
-    '/kick':{f:'kickPlayerFromParty',d:'/kick <player> - kick player from a party where you are a leader'},
-    '/login':{f:'logIn',d:'/login <user> <passwd> - log in or register new user'},
-    '/logoff':{f:'logOff',d:'/logoff - log off registered user'},
-    '/help':{f:'showHelp',d:'/help - show this help'}
-  };
+  this.modes=require('./Modes.js').modes;
+  this.boards=require('./Modes.js').boards;
+  this.gameCommands=require('./Commands.js').game;
+  this.chatCommands=require('./Commands.js').chat;
 }
 
 Server.prototype=EventEmitter.prototype;
-
-//Coop.prototype.foo()
-Server.prototype.foo=function(){
-console.log('Server');
-};
-//Coop.prototype.foo()
 
 Server.prototype.userConnected=function(caller){
   this.sendEvent('clientId',caller.clientId,'auth','InitClient');
@@ -105,13 +69,21 @@ Server.prototype.initAuth=function(caller){
   }
 };
 
-Server.prototype.initNewUser=function(user){
+Server.prototype.initNewUser=function(user,profile){
   this.users[user]={};
   this.playersList[user]={};
+  if (profile){
+    this.users[user].profile=profile;
+    this.playersList[user].level=profile.level;
+  }
+  else{
+    this.users[user].profile={level:0,rank:{},coop:{},versus:{}};
+    this.playersList[user].level=0;
+  }
   this.changeUserState(user,'online');
 };
 
-Server.prototype.initUser=function(caller,user,flag){
+Server.prototype.initUser=function(caller,user,flag,rank,profile){
   this.users[user].clientId=caller.clientId;
   this.connectSids[caller.cookie['connect.sid']]=user;
   this.users[user].connectSid=caller.cookie['connect.sid'];
@@ -123,9 +95,9 @@ Server.prototype.initUser=function(caller,user,flag){
     delete this.killTimers[user];
   }
 
-  if (flag=='registered')
+  if (flag=='registered'){
     this.sendEvent('everyone',null,'system','Message',user+' connected.');
-
+  }
   this.sendEvent('client',user,'auth','Authorize',{user:user,flag:flag});
   this.sendEvent('client',user,'chat','UpdateParties',this.parties);
 
@@ -190,14 +162,14 @@ Server.prototype.logIn=function(caller,user,passwd){
   var reg=/(^user\d+$)/ig; // to check if temp names e.g. user0 being used
   if (user!='' && passwd!='' && !reg.test(user)){
     var self=this;
-    this.db.users.find({user:user},{user:1,passwd:1},function(err,res){
+    this.db.users.find({user:user},{user:1,passwd:1,profile:1},function(err,res){
       if(res[0]){
         if (res[0].passwd==passwd){
           self.systemLogoff.call(self,callerName);
           if (self.users[user])
             self.kickUser.call(self,user);
           else
-            self.initNewUser.call(self,user);
+            self.initNewUser.call(self,user,res[0].profile);
           self.initUser.call(self,caller,user,'registered');
         }  else{
            self.sendEvent('client',callerName,'auth','AuthFail',
@@ -205,10 +177,11 @@ Server.prototype.logIn=function(caller,user,passwd){
            self.initAuth(caller);
         }
       } else {
-        self.db.users.insert({user:user,passwd:passwd},function(err){
+        var profile=self.users[callerName].profile;
+        self.db.users.insert({user:user,passwd:passwd,profile:profile},function(err){
           if (!err){
             self.systemLogoff.call(self,callerName);
-            self.initNewUser.call(self,user);
+            self.initNewUser.call(self,user,profile);
             self.initUser.call(self,caller,user,'registered');
           }
         });
@@ -301,19 +274,20 @@ Server.prototype.processCommand=function(caller,s){
                     {from:user,type:'message',text:s});
 };
 
-Server.prototype.createParty=function(user,mode,m){
-  if (this.modes[mode]){
+Server.prototype.createParty=function(user,mode,bSize,m,level){
+  if (this.modes[mode] && this.boards[bSize]){
     if (this.users[user].state=='online'){
       var partyId=this.partyCounter++;
-      var maxPlayers=parseInt(m)||this.modes[mode].min;
-      if (maxPlayers<this.modes[mode].min)
-        maxPlayers=this.modes[mode].min;
-      if (maxPlayers>this.modes[mode].max)
-        maxPlayers=this.modes[mode].max;
+      var maxPlayers=parseInt(m)||this.modes[mode][bSize].min;
+      if (maxPlayers<this.modes[mode][bSize].min)
+        maxPlayers=this.modes[mode][bSize].min;
+      if (maxPlayers>this.modes[mode][bSize].max)
+        maxPlayers=this.modes[mode][bSize].max;
       this.parties[partyId]={
         id:partyId,
         name:mode+partyId,
         mode:mode,
+        bSize:bSize,
         leader:user,
         maxPlayers:maxPlayers,
         curPlayers:0,
@@ -325,7 +299,7 @@ Server.prototype.createParty=function(user,mode,m){
       this.sendEvent('client',user,'system','Error',
                       {text:'You cannot do this now'});
   } else
-    this.sendEvent('client',user,'system','Error',{text:'No such mode.'});
+    this.sendEvent('client',user,'system','Error',{text:'No such mode or board size.'});
 };
 
 Server.prototype.publishParty=function(user){
@@ -441,42 +415,29 @@ Server.prototype.addSpectator=function(spectator,user){
 };
 
 Server.prototype.createGame=function(args){
-  var query={};
-  query['$or']=[];
-  query['$or'].push({user:'default'});
-  for (var i in args.users)
-    query['$or'].push({user:i});
+  delete this.parties[args.id];
+  args.board=this.boards[args.bSize];
+  args.minPlayers=this.modes[args.mode].min;
+  args.profiles={};
+  for (var u in args.users){
+    args.profiles[u]=this.users[u].profile[args.mode];
+    this.changeUserState(u,'game');
+    this.sendEvent('client',u,'system','Message',args.name+' started.');
+    console.log(u+' has joined the game '+ args.name);
+  }
+
+  if (this.singleThread)
+    this.games[args.id]=new this.modes[args.mode].constr(args);
+  else
+    this.games[args.id]=fork(__dirname+'/GameWrapper.js',[JSON.stringify(args)]);
   var self=this;
-  this.db.users.find(query,{user:1,profile:1},function(err,res){
-    delete self.parties[args.id];
-    var profiles={}
-    for (var i in res)
-      profiles[res[i].user]=res[i].profile;
-    args.profiles=profiles;
-    args.modePars=self.modes[args.mode].modePars;
-    args.minPlayers=self.modes[args.mode].min;
-    for (var u in args.users){
-      self.changeUserState.call(self,u,'game');
-      self.sendEvent('client',u,'system','Message',args.name+' started.');
-      console.log(u+' has joined the game '+ args.name);
-    }
-
-    if (self.singleThread)
-      self.games[args.id]=new self.modes[args.mode].constr(args);
-    else
-      self.games[args.id]=fork(__dirname+'/GameWrapper.js',[JSON.stringify(args)]);
-
-    self.games[args.id].on('message',function(e){
-      self.getGameCommandResult.call(self,e)
-    });
-
-    self.execGameCommand.call(self,args.id,null,'startBoard');
-
-    self.updatePlayersList.call(self);
-    self.updatePartiesList.call(self);
-    console.log('Game '+args.name+' created');
+  this.games[args.id].on('message',function(e){
+    self.getGameCommandResult.call(self,e)
   });
-
+  this.execGameCommand(args.id,null,'startBoard');
+  this.updatePlayersList();
+  this.updatePartiesList();
+  console.log('Game '+args.name+' created');
 };
 
 Server.prototype.execGameCommand=function(pId,user,command){
@@ -497,6 +458,17 @@ Server.prototype.getGameCommandResult=function(e){
 Server.prototype.coopGameResult=function(result){
 //  this.sendEvent('party',result.partyId,'game','ShowResult',result);
 //console.log(result);
+};
+
+Server.prototype.userNewBestTime=function(e){
+  this.users[e.user].profile.rank[e.bSize]=e.time;
+  if (this.users[e.user].type=='registered'){
+    var set={};
+    set['$set']={};
+    set['$set'].profile=this.users[e.user].profile;
+    this.db.users.update({user:e.user},set);
+  } else
+    this.sendEvent('client',e.user,'system','Message','Register with /login command to save your achievements');
 };
 
 Server.prototype.changeUserState=function(user,state){

@@ -11,10 +11,6 @@ function CoopGame(pars){
 
 CoopGame.prototype=new Game;
 
-CoopGame.prototype.foo=function(){
-console.log('Coop');
-};
-
 CoopGame.prototype.onStartBoard=function(){
   this.resetScore();
 };

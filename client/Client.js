@@ -73,7 +73,7 @@ Client.prototype.initClient=function(){
                      ['#auth','#filter',
                         ['select',{all:'all',coop:'coop',rank:'rank',versus:'versus'},
                                   {'onchange':this.filterParty},0,'mode',
-                         'select',{small:'small',M:'medium',B:'big'},{'onchange':this.filterParty},0,'bSize',
+                         'select',{all:'all',s:'small',m:'medium',b:'big'},{'onchange':this.filterParty},0,'bSize',
                          'select',{0:'*',1:1,2:2,3:3,4:4},{'onchange':this.filterParty},0,'maxPlayers',
                          'a','add','addParty',null,{'onclick':this.addParty}],
                       '#parties','#game','#chat',
@@ -181,7 +181,7 @@ Client.prototype.showHelp=function(help){
 Client.prototype.addParty=function(e){
   var modeSI=this.view.mode.selectedIndex;
   var mode='rank';
-  var bSize='';
+  var bSize='s';
   var maxPlayers=1;
   if (this.view.bSize.selectedIndex!=0)
     bSize=this.view.bSize.options[this.view.bSize.selectedIndex].value;
@@ -189,7 +189,7 @@ Client.prototype.addParty=function(e){
     maxPlayers=this.view.maxPlayers.options[this.view.maxPlayers.selectedIndex].value;
   if (modeSI!=0)
     mode=this.view.mode.options[modeSI].value
-  window.now.processCommand('/create '+mode+bSize+' '+maxPlayers);
+  window.now.processCommand('/create '+mode+' '+bSize+' '+maxPlayers);
 };
 
 Client.prototype.filterParty=function(e){
@@ -201,10 +201,11 @@ Client.prototype.playersHandler=function(players){
     this.view.players.removeChild(this.view.players.firstChild)
   var message=[];
   for (var i in players){
+    if (players[i].level>=0)  
+      message.push('['+players[i].level+'] ');
     message.push({val:i,type:'user'});
     if (players[i].state=='game')  
       message.push(' ',{val:'>>',user:i,type:'specPlayer'});
-    message.push('\n');
   }
   if (message.length){
     var playersDiv=crEl('div');
