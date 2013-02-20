@@ -1,7 +1,5 @@
 div#Side
 {
-/* position:absolute;
- left:450px;*/
  top:5px;
  position:relative;
  float:left;
@@ -10,20 +8,20 @@ div#Side
  margin-left:20px;
  margin-top:5px;
 }
-div#Main{
-/* position:absolute;*/
+
+div#Main
+{
  position:relative;
  float:left;
  text-align:left;
  left:5px;
  top:5px;
-/* width:640px;*/
- }
+}
 
 div.messageBlock
 {
- width:350px;
- white-space: pre;
+ width:600px;
+ white-space: pre-wrap;
  word-wrap: break-word;
 }
 
