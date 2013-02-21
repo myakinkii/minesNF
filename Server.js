@@ -15,6 +15,7 @@ function Server(db,st){
   this.games={};
   this.modes=require('./Modes.js').modes;
   this.boards=require('./Modes.js').boards;
+  this.ranks=require('./Modes.js').ranks;
   this.gameCommands=require('./Commands.js').game;
   this.chatCommands=require('./Commands.js').chat;
 }
@@ -462,6 +463,29 @@ Server.prototype.coopGameResult=function(result){
 
 Server.prototype.userNewBestTime=function(e){
   this.users[e.user].profile.rank[e.bSize]=e.time;
+  var times=this.users[e.user].profile['rank'];
+  var newRank=8;
+  for (var bSize in this.ranks)
+  if (!times[bSize]){
+    newRank=0;
+    break;
+  } else {
+    for (var i=0;i<this.ranks[bSize].length;i++)
+      if (times[bSize]<this.ranks[bSize][i]){
+console.log(8-i,this.ranks[bSize][i]);
+        if (newRank>=8-i)
+          newRank=8-i;
+        break;
+       };
+  }
+
+  if (newRank>=0){
+    this.users[e.user].profile.level=newRank;
+    this.playersList[e.user].level=newRank;
+    this.updatePlayersList();
+console.log(newRank)
+  }
+
   if (this.users[e.user].type=='registered'){
     var set={};
     set['$set']={};

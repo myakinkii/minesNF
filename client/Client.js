@@ -64,6 +64,10 @@ Client.prototype.initClient=function(){
                      68:'dismissParty' }
              };
   this.key=0;
+  this.mode=0;
+  this.bSizes={s:'small',m:'medim',b:'big'};
+  this.bSize=0;
+  this.maxPlayers=0;
   this.view={};
   var self=this;
   getTag('body').onkeydown=function(e){self.keyDown.call(self,e)};
@@ -72,9 +76,9 @@ Client.prototype.initClient=function(){
   render.call(this,['#Main',
                      ['#auth','#filter',
                         ['select',{all:'all',coop:'coop',rank:'rank',versus:'versus'},
-                                  {'onchange':this.filterParty},0,'mode',
-                         'select',{all:'all',s:'small',m:'medium',b:'big'},{'onchange':this.filterParty},0,'bSize',
-                         'select',{0:'*',1:1,2:2,3:3,4:4},{'onchange':this.filterParty},0,'maxPlayers',
+                                  {'onchange':this.filterParamsChange},0,'mode',
+                         'select',{all:'all',s:'small',m:'medium',b:'big'},{'onchange':this.filterParamsChange},0,'bSize',
+                         'select',{0:'*',1:1,2:2,3:3,4:4},{'onchange':this.filterParamsChange},0,'maxPlayers',
                          'a','add','addParty',null,{'onclick':this.addParty}],
                       '#parties','#game','#chat',
                         ['input',30,'','command',null,
@@ -179,21 +183,42 @@ Client.prototype.showHelp=function(help){
 };
 
 Client.prototype.addParty=function(e){
-  var modeSI=this.view.mode.selectedIndex;
-  var mode='rank';
-  var bSize='s';
-  var maxPlayers=1;
-  if (this.view.bSize.selectedIndex!=0)
-    bSize=this.view.bSize.options[this.view.bSize.selectedIndex].value;
-  if (this.view.maxPlayers.selectedIndex!=0)
-    maxPlayers=this.view.maxPlayers.options[this.view.maxPlayers.selectedIndex].value;
-  if (modeSI!=0)
-    mode=this.view.mode.options[modeSI].value
-  window.now.processCommand('/create '+mode+' '+bSize+' '+maxPlayers);
+  window.now.processCommand('/create '+(this.mode||'rank')+' '+(this.bSize||'s')+' '+(this.maxPlayers||1));
 };
 
-Client.prototype.filterParty=function(e){
-//alert(e.target.id);
+Client.prototype.filterParamsChange=function(e){
+  if (e.target.selectedIndex!=0)
+    this[e.target.id]=e.target.options[e.target.selectedIndex].value
+  else
+    this[e.target.id]=0;
+  this.filterParties();
+};
+
+Client.prototype.filterParties=function(){
+  if (this.view.parties.firstChild)
+    this.view.parties.removeChild(this.view.parties.firstChild)
+  var message=[];
+
+  for (var i in this.parties){
+    var p=this.parties[i];
+    var modeOK=this.mode==0||this.mode==p.mode;
+    var bSizeOK=this.bSize==0||this.bSize==p.bSize;
+    var maxPlayersOK=this.maxPlayers==0||this.maxPlayers==p.maxPlayers;
+    if (modeOK && bSizeOK && maxPlayersOK){
+      message.push({val:p.name,id:p.id,type:'party'},' '+this.bSizes[p.bSize]+' board',' [');
+      for (var u in p.users)
+        message.push({val:u,type:'user'},' ');
+      for (var i=0;i<p.maxPlayers-p.curPlayers;i++)
+        message.push('<free> ');
+      message.push('] ',{val:'>>',id:p.id,type:'joinParty'},'\n');
+    }
+  }
+  if (message.length){
+    var partiesDiv=crEl('div');
+    render.call(this,['#partiesWrapper',this.transformMessage(message)],
+                partiesDiv);
+    this.view.parties.appendChild(partiesDiv);
+  }
 };
 
 Client.prototype.playersHandler=function(players){
@@ -216,24 +241,8 @@ Client.prototype.playersHandler=function(players){
 };
 
 Client.prototype.partiesHandler=function(parties){
-  if (this.view.parties.firstChild)
-    this.view.parties.removeChild(this.view.parties.firstChild)
-  var message=[];
-  for (var i in parties){
-    var p=parties[i];
-    message.push({val:p.name,id:p.id,type:'party'},' [');
-    for (var u in p.users)
-      message.push({val:u,type:'user'},' ');
-    for (var i=0;i<p.maxPlayers-p.curPlayers;i++)
-      message.push('<free> ');
-    message.push('] ',{val:'>>',id:p.id,type:'joinParty'},'\n');
-  }
-  if (message.length){
-    var partiesDiv=crEl('div');
-    render.call(this,['#partiesWrapper',this.transformMessage(message)],
-                partiesDiv);
-    this.view.parties.appendChild(partiesDiv);
-  }
+  this.parties=parties;
+  this.filterParties();
 };
 
 Client.prototype.startGame=function(pars){
