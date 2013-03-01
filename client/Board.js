@@ -51,7 +51,12 @@ Cell.prototype.setCellValue=function(value){
   if (value==-8)
     value='X';
   this.TDelement.removeChild(this.TDelement.firstChild);
-  if (value!=0)
-    render.call(this,['span','Cell'+value,value],this.TDelement);
+  if (value!=0){
+//    this.parent.parent.view.command.value=value;
+    var span=document.createElement('span')
+    span.className='Cell'+value;
+    span.appendChild(document.createTextNode(value))
+    this.TDelement.appendChild(span);
+  }
 };
 

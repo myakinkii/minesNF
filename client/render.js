@@ -151,7 +151,8 @@ var tags={
   return s;
   },
 'img':function (src,alt,w,h){
-  var i=element('img',null,null,this);
+//  var i=element('img',null,null,this);
+  var i=element('img');
   i.src=src;
   i.alt=alt;
   i.height=h;

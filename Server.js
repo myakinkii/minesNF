@@ -161,33 +161,38 @@ Server.prototype.systemLogoff=function(user,reauth){
 Server.prototype.logIn=function(caller,user,passwd){
   var callerName=this.connectSids[caller.cookie['connect.sid']];
   var reg=/(^user\d+$)/ig; // to check if temp names e.g. user0 being used
-  if (user!='' && passwd!='' && !reg.test(user)){
+  if (user!='' && passwd!='' && !reg.test(user)  && this.db){
     var self=this;
     this.db.users.find({user:user},{user:1,passwd:1,profile:1},function(err,res){
-      if(res[0]){
-        if (res[0].passwd==passwd){
-          self.systemLogoff.call(self,callerName);
-          if (self.users[user])
-            self.kickUser.call(self,user);
-          else
-            self.initNewUser.call(self,user,res[0].profile);
-          self.initUser.call(self,caller,user,'registered');
-        }  else{
-           self.sendEvent('client',callerName,'auth','AuthFail',
-             'Auth for user "'+user+'" failed or user is already registered.');
-           self.initAuth(caller);
-        }
+      if (err){
+        delete self.db;
+        console.log(err.toString());
+        self.sendEvent('client',callerName,'system','Message','Login failed due to some problems with DB. Login disabled.');
       } else {
-        var profile=self.users[callerName].profile;
-        self.db.users.insert({user:user,passwd:passwd,profile:profile},function(err){
-          if (!err){
+        if(res[0]){
+          if (res[0].passwd==passwd){
             self.systemLogoff.call(self,callerName);
-            self.initNewUser.call(self,user,profile);
+            if (self.users[user])
+              self.kickUser.call(self,user);
+            else
+              self.initNewUser.call(self,user,res[0].profile);
             self.initUser.call(self,caller,user,'registered');
+          }  else{
+             self.sendEvent('client',callerName,'auth','AuthFail',
+               'Auth for user "'+user+'" failed or user is already registered.');
+             self.initAuth(caller);
           }
-        });
-      }
-    });
+        } else if(self.db) {
+          var profile=self.users[callerName].profile;
+          self.db.users.insert({user:user,passwd:passwd,profile:profile},function(err){
+            if (!err){
+              self.systemLogoff.call(self,callerName);
+              self.initNewUser.call(self,user,profile);
+              self.initUser.call(self,caller,user,'registered');
+            }
+          });
+        }
+      }});
   }
 };
 
@@ -270,9 +275,20 @@ Server.prototype.processCommand=function(caller,s){
       this.sendEvent('client',user,'system','Error',{text:'Not in party'});
     isCommand=1;
   }
-  if (isCommand==0)
+  var mes=this.prepareMessage(s);
+  if (isCommand==0 && mes)
     this.sendEvent('everyone',null,'chat','Message',
-                    {from:user,type:'message',text:s});
+                    {from:user,type:'message',text:mes});
+};
+
+Server.prototype.prepareMessage=function(s){
+  var notEmpty=s.length>0?1:0;
+  var reg=/(^ +$)/ig;
+  var notSpaces=reg.test(s)?0:1;
+  if (notEmpty && notSpaces) 
+    return s;
+  else 
+    return null;
 };
 
 Server.prototype.createParty=function(user,mode,bSize,m,level){
@@ -472,27 +488,27 @@ Server.prototype.userNewBestTime=function(e){
   } else {
     for (var i=0;i<this.ranks[bSize].length;i++)
       if (times[bSize]<this.ranks[bSize][i]){
-console.log(8-i,this.ranks[bSize][i]);
         if (newRank>=8-i)
           newRank=8-i;
         break;
        };
   }
 
-  if (newRank>=0){
+  if (newRank>0){
     this.users[e.user].profile.level=newRank;
     this.playersList[e.user].level=newRank;
     this.updatePlayersList();
-console.log(newRank)
   }
 
   if (this.users[e.user].type=='registered'){
     var set={};
     set['$set']={};
     set['$set'].profile=this.users[e.user].profile;
-    this.db.users.update({user:e.user},set);
+    if (this.db)
+      this.db.users.update({user:e.user},set);
   } else
-    this.sendEvent('client',e.user,'system','Message','Register with /login command to save your achievements');
+    if (this.db)
+      this.sendEvent('client',e.user,'system','Message','Register with /login command to save your achievements');
 };
 
 Server.prototype.changeUserState=function(user,state){

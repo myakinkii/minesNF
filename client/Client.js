@@ -10,7 +10,7 @@ function Client(){
 
 Client.prototype.sendMessage=function(e){
   var key=e.keyCode||e.which;
-  if(key==13){
+  if(key==13 && this.view.command.value.length>0){
     window.now.processCommand(this.view.command.value);
     this.view.command.value='';
   }
@@ -79,9 +79,9 @@ Client.prototype.initClient=function(){
                                   {'onchange':this.filterParamsChange},0,'mode',
                          'select',{all:'all',s:'small',m:'medium',b:'big'},{'onchange':this.filterParamsChange},0,'bSize',
                          'select',{0:'*',1:1,2:2,3:3,4:4},{'onchange':this.filterParamsChange},0,'maxPlayers',
-                         'a','add','addParty',null,{'onclick':this.addParty}],
+                         'a','add party','addParty',null,{'onclick':this.addParty}],
                       '#parties','#game','#chat',
-                        ['input',30,'','command',null,
+                        ['input',50,'','command',null,
                         {'onkeypress':this.sendMessage},'br']],
                     '#Side',['#players'],
                    ],toTag('body'));
@@ -180,6 +180,8 @@ Client.prototype.showHelp=function(help){
   for (var i in help)
     this.renderMessage([help[i].d]);
   this.renderMessage(['Available commands:']);
+  this.renderMessage(['Space to focus command input']);
+  this.renderMessage(['Use dropdown lists to add and filter parties. Or use commands described below.']);
 };
 
 Client.prototype.addParty=function(e){
