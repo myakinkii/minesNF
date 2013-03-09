@@ -41,6 +41,8 @@ Client.prototype.initHandlers=function(){
   this.registerHandler('NAMessages','chat',this.NAMessagesHandler,this);
   this.registerHandler('Welcome','chat',this.showWelcomeMessage,this);
   this.registerHandler('Help','chat',this.showHelp,this);
+  this.registerHandler('Muted','chat',this.showMuted,this);
+  this.registerHandler('UpdateMuted','chat',this.updateMuted,this);
   this.registerHandler('UpdateParties','chat',this.partiesHandler,this);
   this.registerHandler('UpdatePlayers','chat',this.playersHandler,this);
   this.registerHandler('ShowResultCoop','game',this.showResultCoop,this);
@@ -89,6 +91,7 @@ Client.prototype.initClient=function(){
 
 Client.prototype.authorize=function(auth){
   this.user=auth.user;
+  this.muted=auth.profile.muted;
   if (this.view.auth.firstChild)
     this.view.auth.removeChild(this.view.auth.firstChild);
   if (auth.flag=='temp'){
@@ -149,7 +152,8 @@ Client.prototype.systemMessageHandler=function(text){
 };
 
 Client.prototype.messageHandler=function(m){
-  this.renderTextMessage(m);
+  if (!this.muted[m.from])
+    this.renderTextMessage(m);
 };
 
 Client.prototype.partyMessageHandler=function(m){
@@ -180,8 +184,25 @@ Client.prototype.showHelp=function(help){
   for (var i in help)
     this.renderMessage([help[i].d]);
   this.renderMessage(['Available commands:']);
-  this.renderMessage(['Space to focus command input']);
-  this.renderMessage(['Use dropdown lists to add and filter parties. Or use commands described below.']);
+  this.renderMessage(['Space to focus command input.']);
+  this.renderMessage(['Default \'add party\' mode is small rank board (single player mode).']);
+  this.renderMessage(['Use dropdown lists to add and filter parties, or use commands described below.']);
+};
+
+Client.prototype.showMuted=function(muted){
+  var message=[];
+  for (var i in muted)
+    message.push(i+' ');
+  if (message.length==0)
+    message.push('No muted players.')
+  else
+    message.unshift('Muted players: ');
+  this.renderMessage(message);
+};
+
+Client.prototype.updateMuted=function(muted){
+  this.muted=muted;
+  this.showMuted(muted);
 };
 
 Client.prototype.addParty=function(e){
@@ -233,6 +254,7 @@ Client.prototype.playersHandler=function(players){
     message.push({val:i,type:'user'});
     if (players[i].state=='game')  
       message.push(' ',{val:'>>',user:i,type:'specPlayer'});
+    message.push('\n');
   }
   if (message.length){
     var playersDiv=crEl('div');

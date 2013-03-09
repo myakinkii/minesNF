@@ -74,17 +74,19 @@ Server.prototype.initNewUser=function(user,profile){
   this.users[user]={};
   this.playersList[user]={};
   if (profile){
+    if (!profile.muted)
+      profile.muted={};
     this.users[user].profile=profile;
     this.playersList[user].level=profile.level;
   }
   else{
-    this.users[user].profile={level:0,rank:{},coop:{},versus:{}};
+    this.users[user].profile={level:0,muted:{},rank:{},coop:{},versus:{}};
     this.playersList[user].level=0;
   }
   this.changeUserState(user,'online');
 };
 
-Server.prototype.initUser=function(caller,user,flag,rank,profile){
+Server.prototype.initUser=function(caller,user,flag){
   this.users[user].clientId=caller.clientId;
   this.connectSids[caller.cookie['connect.sid']]=user;
   this.users[user].connectSid=caller.cookie['connect.sid'];
@@ -99,7 +101,7 @@ Server.prototype.initUser=function(caller,user,flag,rank,profile){
   if (flag=='registered'){
     this.sendEvent('everyone',null,'system','Message',user+' connected.');
   }
-  this.sendEvent('client',user,'auth','Authorize',{user:user,flag:flag});
+  this.sendEvent('client',user,'auth','Authorize',{user:user,flag:flag,profile:this.users[user].profile});
   this.sendEvent('client',user,'chat','UpdateParties',this.parties);
 
   if (this.NaMessages[user]){
@@ -376,6 +378,23 @@ Server.prototype.leaveParty=function(user){
   }    
 }
 
+Server.prototype.mutePlayer=function(user,muteUsr){
+  if(muteUsr){
+    this.users[user].profile.muted[muteUsr]=1;
+    this.syncDbProfile(user);
+    this.sendEvent('client',user,'chat','UpdateMuted',this.users[user].profile.muted);
+  } else
+    this.sendEvent('client',user,'chat','Muted',this.users[user].profile.muted);
+};
+
+Server.prototype.umutePlayer=function(user,muteUsr){
+  if(muteUsr){
+    delete this.users[user].profile.muted[muteUsr];
+    this.syncDbProfile(user);
+    this.sendEvent('client',user,'chat','UpdateMuted',this.users[user].profile.muted);
+  }
+};
+
 Server.prototype.kickPlayerFromParty=function(user,userToKick){
   if (this.users[user].partyId && this.users[userToKick]){
     var pId=this.users[user].partyId;
@@ -500,15 +519,17 @@ Server.prototype.userNewBestTime=function(e){
     this.updatePlayersList();
   }
 
-  if (this.users[e.user].type=='registered'){
-    var set={};
-    set['$set']={};
-    set['$set'].profile=this.users[e.user].profile;
-    if (this.db)
-      this.db.users.update({user:e.user},set);
-  } else
-    if (this.db)
-      this.sendEvent('client',e.user,'system','Message','Register with /login command to save your achievements');
+  if (this.db && this.users[e.user].type=='temp')
+    this.sendEvent('client',e.user,'system','Message','Register with /login command to save your achievements');
+  this.syncDbProfile(e.user);
+};
+
+Server.prototype.syncDbProfile=function(user){
+  var set={};
+  set['$set']={};
+  set['$set'].profile=this.users[user].profile;
+  if (this.db)
+    this.db.users.update({user:user},set);
 };
 
 Server.prototype.changeUserState=function(user,state){
