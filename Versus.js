@@ -15,7 +15,7 @@ VersusGame.prototype.resetGame=function(re){
   stat.winner=re.user;
   stat.totalTime=this.totalTime/1000,
   stat.score=this.score,
-  this.emitEvent('party',this.id,'game','ShowResultVersus',stat);
+  this.emitEvent('server',null,null,'versusGameResult',stat);
   this.resetScore();
   this.resetBoard(re);
   this.totalTime=0;

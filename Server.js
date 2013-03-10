@@ -76,11 +76,13 @@ Server.prototype.initNewUser=function(user,profile){
   if (profile){
     if (!profile.muted)
       profile.muted={};
+    if (!profile.score)
+      profile.score=0;
     this.users[user].profile=profile;
     this.playersList[user].level=profile.level;
   }
   else{
-    this.users[user].profile={level:0,muted:{},rank:{},coop:{},versus:{}};
+    this.users[user].profile={level:0,score:0,muted:{},rank:{},coop:{},versus:{}};
     this.playersList[user].level=0;
   }
   this.changeUserState(user,'online');
@@ -293,15 +295,28 @@ Server.prototype.prepareMessage=function(s){
     return null;
 };
 
-Server.prototype.createParty=function(user,mode,bSize,m,level){
+Server.prototype.createParty=function(user,mode,bSize,m,min,max){
   if (this.modes[mode] && this.boards[bSize]){
     if (this.users[user].state=='online'){
       var partyId=this.partyCounter++;
+
       var maxPlayers=parseInt(m)||this.modes[mode][bSize].min;
       if (maxPlayers<this.modes[mode][bSize].min)
         maxPlayers=this.modes[mode][bSize].min;
       if (maxPlayers>this.modes[mode][bSize].max)
         maxPlayers=this.modes[mode][bSize].max;
+
+      var minLevel=parseInt(min)||0;
+      var maxLevel=parseInt(max)||8;
+      if (minLevel<0 || minLevel>8)
+        minLevel=0;
+      if(minLevel>this.users[user].profile.level)
+        minLevel=this.users[user].profile.level;
+      if (maxLevel<0 || maxLevel>8)
+        maxLevel=8;
+      if (maxLevel<minLevel)
+        maxLevel=minLevel;
+
       this.parties[partyId]={
         id:partyId,
         name:mode+partyId,
@@ -309,6 +324,8 @@ Server.prototype.createParty=function(user,mode,bSize,m,level){
         bSize:bSize,
         leader:user,
         maxPlayers:maxPlayers,
+        minLevel:minLevel,
+        maxLevel:maxLevel,
         curPlayers:0,
         users:{}
         };
@@ -334,9 +351,14 @@ Server.prototype.sendPartyPM=function(user,m){
 };
 
 Server.prototype.joinParty=function(user,partyId){
-  if (this.parties[partyId])
-    this.addPlayerToParty(user,partyId);
-  else
+  if (this.parties[partyId]){
+    var p=this.parties[partyId];
+    var level=this.users[user].profile.level;
+    if (p.minLevel<=level && p.maxLevel>=level)
+      this.addPlayerToParty(user,partyId);
+    else
+      this.sendEvent('client',user,'system','Error',{text:'Cannot join due to level restrictions.'});
+  } else
     this.sendEvent('client',user,'system','Error',{text:'No such party.'});
 };
 
@@ -453,7 +475,7 @@ Server.prototype.addSpectator=function(spectator,user){
 Server.prototype.createGame=function(args){
   delete this.parties[args.id];
   args.board=this.boards[args.bSize];
-  args.minPlayers=this.modes[args.mode].min;
+  args.minPlayers=this.modes[args.mode][args.bSize].min;
   args.profiles={};
   for (var u in args.users){
     args.profiles[u]=this.users[u].profile[args.mode];
@@ -491,9 +513,23 @@ Server.prototype.getGameCommandResult=function(e){
     this.sendEvent(e.dst,e.dstId,e.contextId,e.func,e.arg);
 };
 
-Server.prototype.coopGameResult=function(result){
-//  this.sendEvent('party',result.partyId,'game','ShowResult',result);
-//console.log(result);
+Server.prototype.versusGameResult=function(e){
+ var score=0;
+  for (var i in e.score)
+    if (e.score[i]>0) 
+      score+=e.score[i];
+  this.users[e.winner].profile.score+=score;
+  this.syncDbProfile(e.winner);
+  this.sendEvent('party',e.partyId,'game','ShowResultVersus',e);
+};
+
+Server.prototype.coopGameResult=function(e){
+  if (e.result=='win')
+    for (var i in e.score){
+      this.users[i].profile.score+=e.score[i];
+      this.syncDbProfile(i);
+    };
+  this.sendEvent('party',e.partyId,'game','ShowResultCoop',e);
 };
 
 Server.prototype.userNewBestTime=function(e){

@@ -70,6 +70,8 @@ Client.prototype.initClient=function(){
   this.bSizes={s:'small',m:'medim',b:'big'};
   this.bSize=0;
   this.maxPlayers=0;
+  this.minLevel=0;
+  this.maxLevel=8;
   this.view={};
   var self=this;
   getTag('body').onkeydown=function(e){self.keyDown.call(self,e)};
@@ -77,13 +79,15 @@ Client.prototype.initClient=function(){
   getTag('body').removeChild(getId('warning'));
   render.call(this,['#Main',
                      ['#auth','#filter',
-                        ['select',{all:'all',coop:'coop',rank:'rank',versus:'versus'},
+                        ['select',{all:'mode: all',coop:'coop',rank:'rank',versus:'versus'},
                                   {'onchange':this.filterParamsChange},0,'mode',
-                         'select',{all:'all',s:'small',m:'medium',b:'big'},{'onchange':this.filterParamsChange},0,'bSize',
-                         'select',{0:'*',1:1,2:2,3:3,4:4},{'onchange':this.filterParamsChange},0,'maxPlayers',
+                         'select',{all:'board: all',s:'small',m:'medium',b:'big'},{'onchange':this.filterParamsChange},0,'bSize',
+                         'select',{0:'players: *',1:1,2:2,3:3,4:4},{'onchange':this.filterParamsChange},0,'maxPlayers',
+                         'select',{0:'min level: 0',1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8},{'onchange':this.filterParamsChange},0,'minLevel',
+                         'select',{0:'max level: *',1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8},{'onchange':this.filterParamsChange},0,'maxLevel',
                          'a','add party','addParty',null,{'onclick':this.addParty}],
                       '#parties','#game','#chat',
-                        ['input',50,'','command',null,
+                        ['input',100,'','command',null,
                         {'onkeypress':this.sendMessage},'br']],
                     '#Side',['#players'],
                    ],toTag('body'));
@@ -206,7 +210,8 @@ Client.prototype.updateMuted=function(muted){
 };
 
 Client.prototype.addParty=function(e){
-  window.now.processCommand('/create '+(this.mode||'rank')+' '+(this.bSize||'s')+' '+(this.maxPlayers||1));
+  window.now.processCommand('/create '+(this.mode||'rank')+' '+(this.bSize||'s')+' '
+                            +(this.maxPlayers||1)+' '+this.minLevel+' '+(this.maxLevel||8));
 };
 
 Client.prototype.filterParamsChange=function(e){
@@ -227,8 +232,12 @@ Client.prototype.filterParties=function(){
     var modeOK=this.mode==0||this.mode==p.mode;
     var bSizeOK=this.bSize==0||this.bSize==p.bSize;
     var maxPlayersOK=this.maxPlayers==0||this.maxPlayers==p.maxPlayers;
-    if (modeOK && bSizeOK && maxPlayersOK){
-      message.push({val:p.name,id:p.id,type:'party'},' '+this.bSizes[p.bSize]+' board',' [');
+    if (this.maxLevel<this.minLevel)
+      this.maxLevel=this.minLevel;
+    var minLevelOK=this.minLevel==0||this.minLevel<=p.maxLevel;
+    var maxLevelOK=this.maxLevel==0||this.maxLevel>=p.minLevel;
+    if (modeOK && bSizeOK && maxPlayersOK && minLevelOK && maxLevelOK){
+      message.push({val:p.name,id:p.id,type:'party'},' '+this.bSizes[p.bSize]+' board',' levels '+p.minLevel+'-'+p.maxLevel,' [');
       for (var u in p.users)
         message.push({val:u,type:'user'},' ');
       for (var i=0;i<p.maxPlayers-p.curPlayers;i++)

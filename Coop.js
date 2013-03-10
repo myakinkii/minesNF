@@ -35,7 +35,7 @@ CoopGame.prototype.onResetBoard=function(e){
   stat.lost=this.lost,
   stat.winPercentage=Math.round(100*this.won/this.gamesPlayed)+'%',
   stat.streak=this.winStreak?this.winStreak:this.loseStreak;
-  this.emitEvent('party',this.id,'game','ShowResultCoop',stat);
+  this.emitEvent('server',null,null,'coopGameResult',stat);
 };
 
 CoopGame.prototype.onCells=function(re){
