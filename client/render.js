@@ -42,7 +42,7 @@ var tags={
   },
 '{}':function (object){
   var a=element('a',null,object.style+'Object',this,
-                {onclick:function(e){this[object.func].call(this,object.o,e)}});
+                {onclick:function(e){object.func.call(this,object.o,e)}});
   a.appendChild(text(object.o.val));
   a.href="#empty";
   return a;
@@ -151,7 +151,6 @@ var tags={
   return s;
   },
 'img':function (src,alt,w,h){
-//  var i=element('img',null,null,this);
   var i=element('img');
   i.src=src;
   i.alt=alt;

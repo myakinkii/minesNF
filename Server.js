@@ -124,7 +124,7 @@ Server.prototype.initUser=function(caller,user,flag){
 };
 
 Server.prototype.kickUser=function(user){
-  this.sendEvent('client',user,'system','Error',{text:'Someone kicked your ass'});
+  this.sendEvent('client',user,'system','Error','Someone kicked your ass');
   if (this.users[user].state=='game');
     this.sendEvent('client',user,'game','EndGame');
   delete this.connectSids[this.users[user].connectSid];
@@ -217,18 +217,16 @@ Server.prototype.deleteUser=function(user){
 
 Server.prototype.sendPrivateMessage=function(user,userTo){
   if (userTo==user)
-    this.sendEvent('client',user,'system','Error',
-                    {text:'Such a stupid thing.'});
+    this.sendEvent('client',user,'system','Error','Such a stupid thing.');
   else {
     if (this.users[userTo]){
       var mes=Array.prototype.slice.call(arguments,2).join(' ');
-      this.sendEvent('client',user,'chat','PrivateMessage',
-                     {from:user,to:userTo,type:'PM',text:mes});
-      this.sendEvent('client',userTo,'chat','PrivateMessage',
-                     {from:user,to:userTo,type:'PM',text:mes});
+      this.sendEvent('client',user,'chat','Message',
+                     {from:user,to:userTo,type:'private',text:mes});
+      this.sendEvent('client',userTo,'chat','Message',
+                     {from:user,to:userTo,type:'private',text:mes});
     } else {
-     this.sendEvent('client',user,'system','Error',
-                     {text:userTo+'is offline.'});
+     this.sendEvent('client',user,'system','Error',userTo+'is offline.');
       }
   }
 };
@@ -244,8 +242,7 @@ Server.prototype.processCommand=function(caller,s){
     else
       pars[0]=user;
     if (this.users[user].state=='game' && command!='/to')
-      this.sendEvent('client',user,'system','Error',
-                      {text:'You cannot do this now'});
+      this.sendEvent('client',user,'system','Error','You cannot do this now');
     else
       this[this.chatCommands[command].f].apply(this,pars);
     isCommand=1;
@@ -257,13 +254,12 @@ Server.prototype.processCommand=function(caller,s){
       pars.unshift(this.users[user].partyId);
       this.execGameCommand.apply(this,pars);
     } else 
-      this.sendEvent('client',user,'system','Error',
-                      {text:'Not in game now'});
+      this.sendEvent('client',user,'system','Error','Not in game now');
     isCommand=1;
   }
   var shortCommand=s.slice(0,1);
   if (shortCommand=='/' && isCommand==0){
-    this.sendEvent('client',user,'system','Error',{text:'No such command.'});
+    this.sendEvent('client',user,'system','Error','No such command.');
     isCommand=1;
   }
   if (shortCommand=='!' && isCommand==0){
@@ -273,10 +269,10 @@ Server.prototype.processCommand=function(caller,s){
   }
   if (shortCommand=='#' && isCommand==0){
     if (this.users[user].partyId)
-      this.sendEvent('party',this.users[user].partyId,'chat','PartyMessage',
-                      {from:user,type:'partyPM',text:s.slice(1,s.length)});
+      this.sendEvent('party',this.users[user].partyId,'chat','Message',
+                      {from:user,type:'party',text:s.slice(1,s.length)});
     else
-      this.sendEvent('client',user,'system','Error',{text:'Not in party'});
+      this.sendEvent('client',user,'system','Error','Not in party');
     isCommand=1;
   }
   var mes=this.prepareMessage(s);
@@ -332,10 +328,9 @@ Server.prototype.createParty=function(user,mode,bSize,m,min,max){
         this.sendEvent('client',user,'system','Message',mode+partyId+' created.');
       this.addPlayerToParty(user,partyId);
     } else 
-      this.sendEvent('client',user,'system','Error',
-                      {text:'You cannot do this now'});
+      this.sendEvent('client',user,'system','Error','You cannot do this now');
   } else
-    this.sendEvent('client',user,'system','Error',{text:'No such mode or board size.'});
+    this.sendEvent('client',user,'system','Error','No such mode or board size.');
 };
 
 Server.prototype.publishParty=function(user){
@@ -357,9 +352,9 @@ Server.prototype.joinParty=function(user,partyId){
     if (p.minLevel<=level && p.maxLevel>=level)
       this.addPlayerToParty(user,partyId);
     else
-      this.sendEvent('client',user,'system','Error',{text:'Cannot join due to level restrictions.'});
+      this.sendEvent('client',user,'system','Error','Cannot join due to level restrictions.');
   } else
-    this.sendEvent('client',user,'system','Error',{text:'No such party.'});
+    this.sendEvent('client',user,'system','Error','No such party.');
 };
 
 Server.prototype.dismissParty=function(user){
@@ -404,6 +399,8 @@ Server.prototype.mutePlayer=function(user,muteUsr){
   if(muteUsr){
     this.users[user].profile.muted[muteUsr]=1;
     this.syncDbProfile(user);
+    if (user==muteUsr)
+      this.sendEvent('client',user,'system','Message','Very clever. You muted yourself.');
     this.sendEvent('client',user,'chat','UpdateMuted',this.users[user].profile.muted);
   } else
     this.sendEvent('client',user,'chat','Muted',this.users[user].profile.muted);
@@ -451,8 +448,7 @@ Server.prototype.addPlayerToParty=function(user,pId){
     if (p.curPlayers==p.maxPlayers)
       this.createGame(p);
   } else
-    this.sendEvent('client',user,'system','Error',
-                    {text:'You have already joined the party.'});
+    this.sendEvent('client',user,'system','Error','You have already joined the party.');
 };
 
 Server.prototype.addSpectator=function(spectator,user){
@@ -466,10 +462,9 @@ Server.prototype.addSpectator=function(spectator,user){
         this.execGameCommand(pId,spectator,'addSpectator');
         this.emit('addToGroup',this.users[spectator].clientId,pId);
       } else
-      this.sendEvent('client',user,'system','Error',
-                      {text:user+' not in a game now'});
+      this.sendEvent('client',user,'system','Error',user+' not in a game now');
     } else
-      this.sendEvent('client',spectator,'system','Error',{text:'No such user.'});
+      this.sendEvent('client',spectator,'system','Error','No such user.');
 };
 
 Server.prototype.createGame=function(args){

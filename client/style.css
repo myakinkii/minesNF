@@ -1,3 +1,17 @@
+body{background:#eee;}
+
+body a:hover
+{cursor:default; text-decoration:none;}
+
+div#Main
+{
+ position:relative;
+ float:left;
+ text-align:left;
+ left:5px;
+ top:5px;
+}
+
 div#Side
 {
  top:5px;
@@ -7,15 +21,6 @@ div#Side
  width:150px;
  margin-left:20px;
  margin-top:5px;
-}
-
-div#Main
-{
- position:relative;
- float:left;
- text-align:left;
- left:5px;
- top:5px;
 }
 
 div.messageBlock
@@ -37,62 +42,39 @@ div.messageBlock a:hover
 a.userObject
 {color: #999;}
 
-a.playerObject
-{color: #f00;}
-
-a.nodeObject
-{color: #00f;}
-
 a.commandObject
 {color: #f99;}
 
-a.PMObject
-{color: #60f;}
-
-a.messageObject
-{color: #000;}
-
-a.shoutObject
-{color: #f50;}
-
-a.partyPMObject
-{color: #00f;}
-
-span.partyPM
+span.PartyMessage
 {
- color: #035;
- background-color: #e6e6fa;
+ color: #6a3;
+ background-color: #eee;
 }
 
-table {
-  border:1px solid black;
-  border-collapse: collapse;
+a.partyObject
+{color: #6a3;}
+
+
+span.PrivateMessage
+{
+ color: #933;
+ background-color: #eee;
 }
 
-td {
-  width:16px;
-  height:16px;
-  border:1px solid black;
-  font:11px Arial black;
-  background:#ddd;
+span.ShoutMessage
+{
+ color: #f00;
 }
 
-body{background:#eee;}
+span.Result{color:#777;}
 
-body a:hover
-{cursor:default; text-decoration:none;}
-
-.newResult {font-weight:bold}
-
-.cell{width:13px;height:13px;}
-.Cell0{color:#aaa;}
-.Cell1{color:#00f;}
-.Cell2{color:#390;}
-.Cell3{color:#f00;}
-.Cell4{color:#309;}
-.Cell5{color:#930;}
-.Cell6{color:#099;}
-.Cell7{color:#939;}
-.Cell8{color:#000;}
-.CellX{color:#333;}
+span.Rank0{color:#aaa;}
+span.Rank1{color:#00f;}
+span.Rank2{color:#390;}
+span.Rank3{color:#f00;}
+span.Rank4{color:#309;}
+span.Rank5{color:#930;}
+span.Rank6{color:#099;}
+span.Rank7{color:#939;}
+span.Rank8{color:#000;}
 
