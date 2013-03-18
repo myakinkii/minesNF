@@ -146,6 +146,7 @@ Client.prototype.initHandlers=function(){
   this.registerHandler('Help','chat',this.onHelp,this);
   this.registerHandler('Top','chat',this.onTop,this);
   this.registerHandler('Info','chat',this.onInfo,this);
+  this.registerHandler('Ranks','chat',this.onRanks,this);
   this.registerHandler('Muted','chat',this.onMuted,this);
   this.registerHandler('UpdateMuted','chat',this.onUpdateMuted,this);
   this.registerHandler('UpdateParties','chat',this.onUpdateParties,this);
@@ -253,6 +254,13 @@ Client.prototype.onInfo=function(info){
   var message=['[',{span:{cN:'Rank'+p.level,t:p.level}},']'+info.user+' score:'+p.score,'\n'];
   for (var i in p.rank)
     message.push(' '+i+': '+p.rank[i]+'ms','\n');
+  this.renderMessageT(message);
+};
+
+Client.prototype.onRanks=function(ranks){
+  var message=['In order to get a rank you have to get your times in:','\n'];
+  for (var i=1; i<=8;i++) 
+    message.push({span:{cN:'Rank'+i,t:i}},': '+ranks.small[8-i]+'-'+ranks.medium[8-i]+'-'+ranks.big[8-i]+'s ','\n')
   this.renderMessageT(message);
 };
 

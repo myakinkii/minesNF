@@ -399,6 +399,10 @@ Server.prototype.leaveParty=function(user){
   }    
 }
 
+Server.prototype.showRanks=function(user){
+  this.sendEvent('client',user,'chat','Ranks',this.ranks)
+};
+
 Server.prototype.playerInfo=function(user,infoUsr){
   if (this.db && infoUsr){
     var self=this;
