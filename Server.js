@@ -162,6 +162,11 @@ Server.prototype.systemLogoff=function(user,reauth){
     this.sendEvent('clientId',clientId,'auth','Reauth');
 };
 
+Server.prototype.disableDb=function(err){
+  delete this.db;
+  console.log(err.toString());
+};
+
 Server.prototype.logIn=function(caller,user,passwd){
   var callerName=this.connectSids[caller.cookie['connect.sid']];
   var reg=/(^user\d+$)/ig; // to check if temp names e.g. user0 being used
@@ -169,8 +174,7 @@ Server.prototype.logIn=function(caller,user,passwd){
     var self=this;
     this.db.users.find({user:user},{user:1,passwd:1,profile:1},function(err,res){
       if (err){
-        delete self.db;
-        console.log(err.toString());
+        self.disableDb(err);
         self.sendEvent('client',callerName,'system','Message','Login failed due to some problems with DB. Login disabled.');
       } else {
         if(res[0]){
@@ -394,6 +398,37 @@ Server.prototype.leaveParty=function(user){
     }
   }    
 }
+
+Server.prototype.playerInfo=function(user,infoUsr){
+  if (this.db && infoUsr){
+    var self=this;
+    this.db.users.find({user:infoUsr},{_id:0,user:1,"profile.level":1,"profile.rank":1,"profile.score":1},function(err,res){
+      if (!err){
+        if (res[0])
+          self.sendEvent('client',user,'chat','Info',res[0])
+        else
+          self.sendEvent('client',user,'system','Error','No such user.');
+      } else {
+        self.disableDb(err);
+        self.sendEvent('client',user,'system','Error','Seems we have some problems with DB. Sry.');
+      }
+    });
+  }
+};
+
+Server.prototype.topPlayers=function(user){
+  if (this.db){
+    var self=this;
+    this.db.users.find({},{_id:0,user:1,"profile.level":1,"profile.score":1}).limit(10).sort({"profile.score":-1},function(err,res){
+      if (!err)
+        self.sendEvent('client',user,'chat','Top',res);
+      else {
+        self.disableDb(err);
+        self.sendEvent('client',user,'system','Error','Seems we have some problems with DB. Sry.');
+      }
+    });
+  }
+};
 
 Server.prototype.mutePlayer=function(user,muteUsr){
   if(muteUsr){

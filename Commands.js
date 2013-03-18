@@ -3,6 +3,8 @@
     '/quit':{f:'quitGame',d:'/quit - quit current game'}
   };
   module.exports.chat={
+    '/top':{f:'topPlayers',d:'/top - get top10.'},
+    '/info':{f:'playerInfo',d:'/info <player> - get player info.'},
     '/to':{f:'sendPrivateMessage',d:'/to <player> <text> - send private message.'},
     '/join':{f:'joinParty',d:'/join <partyId> - join party.'},
     '/spec':{f:'addSpectator',d:'/spec <user> - spectate user.'},

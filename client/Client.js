@@ -144,6 +144,8 @@ Client.prototype.initHandlers=function(){
   this.registerHandler('NAMessages','chat',this.onNAMessages,this);
   this.registerHandler('Welcome','chat',this.onWelcome,this);
   this.registerHandler('Help','chat',this.onHelp,this);
+  this.registerHandler('Top','chat',this.onTop,this);
+  this.registerHandler('Info','chat',this.onInfo,this);
   this.registerHandler('Muted','chat',this.onMuted,this);
   this.registerHandler('UpdateMuted','chat',this.onUpdateMuted,this);
   this.registerHandler('UpdateParties','chat',this.onUpdateParties,this);
@@ -234,6 +236,24 @@ Client.prototype.onHelp=function(help){
       'Default \'add party\' mode is small rank board (single player mode).','\n',
       'Space to focus command input.','\n',
       'Available commands:']);
+};
+
+Client.prototype.onTop=function(top10){
+  var message=['Top players:','\n'];
+  var n=1;
+  for (var i=0;i<top10.length;i++){
+    var p=top10[i].profile;
+    message.push(' '+(i+1)+': [',{span:{cN:'Rank'+p.level,t:p.level}},']'+top10[i].user+' - '+p.score,'\n')
+  }
+  this.renderMessageT(message);
+};
+
+Client.prototype.onInfo=function(info){
+  var p=info.profile;
+  var message=['[',{span:{cN:'Rank'+p.level,t:p.level}},']'+info.user+' score:'+p.score,'\n'];
+  for (var i in p.rank)
+    message.push(' '+i+': '+p.rank[i]+'ms','\n');
+  this.renderMessageT(message);
 };
 
 Client.prototype.onMuted=function(muted){
