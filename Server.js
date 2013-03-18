@@ -571,7 +571,7 @@ Server.prototype.userNewBestTime=function(e){
   var times=this.users[e.user].profile['rank'];
   var newRank=8;
   for (var bSize in this.ranks)
-  if (!times[bSize]){
+  if (!times[bSize] || times[bSize]>=this.ranks[bSize][7]){
     newRank=0;
     break;
   } else {
