@@ -52,9 +52,9 @@ Server.prototype.killPlayerByTimeout=function(user){
 };
 
 Server.prototype.showHelp=function(user){
-  if (this.users[user].state=='game')
-    this.sendEvent('client',user,'chat','Help',this.gameCommands);
-  else 
+//  if (this.users[user].state=='game')
+//    this.sendEvent('client',user,'chat','Help',this.gameCommands);
+//  else 
     this.sendEvent('client',user,'chat','Help',this.chatCommands);
 };
 
@@ -84,7 +84,8 @@ Server.prototype.initNewUser=function(user,profile){
     this.playersList[user].level=profile.level;
   }
   else{
-    this.users[user].profile={level:0,score:0,rankTotal:0,muted:{},rank:{},coop:{},versus:{}};
+    this.users[user].profile={level:0,score:0,rankTotal:0,
+                              muted:{},rank:{},coop:{},versus:{}};
     this.playersList[user].level=0;
   }
   this.changeUserState(user,'online');
@@ -105,7 +106,8 @@ Server.prototype.initUser=function(caller,user,flag){
   if (flag=='registered'){
     this.sendEvent('everyone',null,'system','Message',user+' connected.');
   }
-  this.sendEvent('client',user,'auth','Authorize',{user:user,flag:flag,profile:this.users[user].profile});
+  this.sendEvent('client',user,'auth','Authorize',
+                 {user:user,flag:flag,profile:this.users[user].profile});
   this.sendEvent('client',user,'chat','UpdateParties',this.parties);
 
   if (this.NaMessages[user]){
@@ -135,11 +137,12 @@ Server.prototype.kickUser=function(user){
 };
 
 Server.prototype.logOff=function(user){
-  if (this.users[user].type=='registered'){
+  if (this.users[user].state=='online' && this.users[user].type=='registered'){
     this.sendEvent('everyone',null,'system','Message',user+' has logged off.');
     this.systemLogoff(user,1);
     console.log(user+' has logged off.');
-  }
+  } else
+    this.sendEvent('client',user,'system','Error','You cannot do this.');
 };
 
 Server.prototype.systemLogoff=function(user,reauth){
@@ -172,12 +175,13 @@ Server.prototype.disableDb=function(err){
 Server.prototype.logIn=function(caller,user,passwd){
   var callerName=this.connectSids[caller.cookie['connect.sid']];
   var reg=/(^user\d+$)/ig; // to check if temp names e.g. user0 being used
-  if (user!='' && passwd!='' && !reg.test(user)  && this.db){
+  if (this.users[callerName].state=='online' && user!='' && passwd!='' && !reg.test(user)  && this.db){
     var self=this;
     this.db.users.find({user:user},{user:1,passwd:1,profile:1},function(err,res){
       if (err){
         self.disableDb(err);
-        self.sendEvent('client',callerName,'system','Message','Login failed due to some problems with DB. Login disabled.');
+        self.sendEvent('client',callerName,'system','Message',
+                       'Login failed due to some problems with DB. Login disabled.');
       } else {
         if(res[0]){
           if (res[0].passwd==passwd){
@@ -203,7 +207,8 @@ Server.prototype.logIn=function(caller,user,passwd){
           });
         }
       }});
-  }
+  } else
+    this.sendEvent('client',callerName,'system','Error','You cannot do this now.');
 };
 
 Server.prototype.updatePlayersList=function(){
@@ -247,9 +252,9 @@ Server.prototype.processCommand=function(caller,s){
       pars[0]=caller;
     else
       pars[0]=user;
-    if (this.users[user].state=='game' && command!='/to')
-      this.sendEvent('client',user,'system','Error','You cannot do this now');
-    else
+//    if (this.users[user].state=='game' && command!='/to')
+//      this.sendEvent('client',user,'system','Error','You cannot do this now');
+//    else
       this[this.chatCommands[command].f].apply(this,pars);
     isCommand=1;
   }
@@ -298,8 +303,8 @@ Server.prototype.prepareMessage=function(s){
 };
 
 Server.prototype.createParty=function(user,mode,bSize,m,min,max){
-  if (this.modes[mode] && this.boards[bSize]){
-    if (this.users[user].state=='online'){
+  if (this.users[user].state=='online'){
+    if (this.modes[mode] && this.boards[bSize]){
       var partyId=this.partyCounter++;
 
       var maxPlayers=parseInt(m)||this.modes[mode][bSize].min;
@@ -334,37 +339,34 @@ Server.prototype.createParty=function(user,mode,bSize,m,min,max){
         this.sendEvent('client',user,'system','Message',mode+partyId+' created.');
       this.addPlayerToParty(user,partyId);
     } else 
-      this.sendEvent('client',user,'system','Error','You cannot do this now');
+      this.sendEvent('client',user,'system','Error','No such mode or board size.');
   } else
-    this.sendEvent('client',user,'system','Error','No such mode or board size.');
+    this.sendEvent('client',user,'system','Error','You cannot do this now');
 };
 
 Server.prototype.publishParty=function(user){
-  if (this.users[user].partyId)
-    var partyId=this.users[user].partyId;
-  if (this.parties[partyId]){
-    var p=this.parties[partyId];
+  if (this.users[user].state=='party'){
+    var p=this.parties[this.users[user].partyId];
     this.sendEvent('everyone',null,'chat','PublishParty',{user:user,party:p});
   }
 };
 
-Server.prototype.sendPartyPM=function(user,m){
-};
-
 Server.prototype.joinParty=function(user,partyId){
-  if (this.parties[partyId]){
+  if (this.users[user].state=='online' && this.parties[partyId]){
     var p=this.parties[partyId];
     var level=this.users[user].profile.level;
     if (p.minLevel<=level && p.maxLevel>=level)
       this.addPlayerToParty(user,partyId);
     else
-      this.sendEvent('client',user,'system','Error','Cannot join due to level restrictions.');
+      this.sendEvent('client',user,'system','Error',
+                     'Cannot join due to level restrictions.');
   } else
-    this.sendEvent('client',user,'system','Error','No such party.');
+    this.sendEvent('client',user,'system','Error',
+                   'No such party or you are already in a party or a game.');
 };
 
 Server.prototype.dismissParty=function(user){
-  if (this.users[user].partyId && this.parties[this.users[user].partyId]){
+  if (this.users[user].state=='party'){
     var pId=this.users[user].partyId;
     if (this.parties[pId].leader==user){
       var p=this.parties[pId];
@@ -378,14 +380,13 @@ Server.prototype.dismissParty=function(user){
       this.updatePlayersList();
       this.updatePartiesList();
     }
-  }
+  } else    
+    this.sendEvent('client',user,'system','Error','Not in a party now');
 };
 
 Server.prototype.leaveParty=function(user){
-  if (this.users[user].partyId){
-    var pId=this.users[user].partyId;
-    var p=this.parties[pId];
-    var id=this.users[user].clientId;
+  if (this.users[user].state=='party'){
+    var p=this.parties[this.users[user].partyId];
     if (p.leader==user)
       this.dismissParty(user)
     else {
@@ -395,10 +396,11 @@ Server.prototype.leaveParty=function(user){
         this.changeUserState(user,'online');
         this.updatePLayersList();
         this.updatePartiesList();
-        this.sendEvent('client',user,'system','Message','You left party.');
-        this.emit('removeFromGroup',id,pId);
+        this.sendEvent('party',p.id,'system','Message',user+' left party.');
+        this.emit('removeFromGroup',this.users[user].clientId,p.id);
     }
-  }    
+  } else    
+    this.sendEvent('client',user,'system','Error','Not in a party now');
 }
 
 Server.prototype.showRanks=function(user){
@@ -408,56 +410,52 @@ Server.prototype.showRanks=function(user){
 Server.prototype.playerInfo=function(user,infoUsr){
   if (this.db && infoUsr){
     var self=this;
-    this.db.users.find({user:infoUsr},{_id:0,
-                                       user:1,
-                                       "profile.level":1,
-                                       "profile.rank":1,
-                                       "profile.rankTotal":1,
-                                       "profile.score":1},function(err,res){
+    var fields={_id:0,user:1,
+                "profile.level":1,
+                "profile.rank":1,
+                "profile.rankTotal":1,
+                "profile.score":1};
+    this.db.users.find({user:infoUsr},fields,function(err,res){
       if (!err){
         if (res[0])
           self.sendEvent('client',user,'chat','Info',res[0])
         else
-          self.sendEvent('client',user,'system','Error','No such registerred user.');
+          self.sendEvent('client',user,'system','Error',
+                         'No such registerred user.');
       } else {
         self.disableDb(err);
-        self.sendEvent('client',user,'system','Error','Seems we have some problems with DB. Sry.');
+        self.sendEvent('client',user,'system','Error',
+                       'Seems we have some problems with DB. Sry.');
       }
     });
   }
 };
 
 Server.prototype.topPlayers=function(user){
-  if (this.db){
-    var self=this;
-    this.db.users.find({},{_id:0,
-                           user:1,
-                           "profile.level":1,
-                           "profile.score":1}).limit(10).sort({"profile.score":-1},function(err,res){
-      if (err){
-        self.disableDb(err);
-        self.sendEvent('client',user,'system','Error','Seems we have some problems with DB. Sry.');
-      } else if (res[0])
-        self.sendEvent('client',user,'chat','Top',res);
+  var where=[{"profile.rankTotal":{"$ne":0}},
+             {}];
+  var fields=[{_id:0,
+               user:1,
+               "profile.level":1,
+               "profile.rank":1,
+               "profile.rankTotal":1},
+              {_id:0,
+               user:1,
+               "profile.level":1,
+               "profile.score":1}];
+  var sort=[{"profile.rankTotal":1},
+            {"profile.score":-1}];
+  var self=this;
+  for (var i=0;i<2;i++)
+    if (this.db)
+      this.db.users.find(where[i],fields[i]).limit(10).sort(sort[i],function(err,res){
+        if (err) {
+          self.disableDb(err);
+          self.sendEvent('client',user,'system','Error',
+                         'Seems we have some problems with DB. Sry.');
+        } else if (res[0])
+          self.sendEvent('client',user,'chat','Top',res);
     });
-  }
-  if (this.db){
-    var self=this;
-    this.db.users.find({"profile.rankTotal":{"$ne":0}},
-                       {_id:0,
-                        user:1,
-                        "profile.rankTotal":1,
-                        "profile.level":1,
-                        "profile.rank":1}).limit(10).sort({"profile.rankTotal":1},
-                                                          function(err,res){
-                            if (err) {
-                              self.disableDb(err);
-                              self.sendEvent('client',user,'system','Error',
-                                             'Seems we have some problems with DB. Sry.');
-                            } else if (res[0])
-                              self.sendEvent('client',user,'chat','Top',res);
-                                                        });
-  }
 };
 
 Server.prototype.mutePlayer=function(user,muteUsr){
@@ -480,44 +478,38 @@ Server.prototype.umutePlayer=function(user,muteUsr){
 };
 
 Server.prototype.kickPlayerFromParty=function(user,userToKick){
-  if (this.users[user].partyId && this.users[userToKick]){
-    var pId=this.users[user].partyId;
-    var p=this.parties[pId];
-    var kickId=this.users[userToKick].clientId;
-    if (p.leader==user && p.curPlayers>1)
-      if (p.users[userToKick] && user!=userToKick){
-        p.curPlayers--;
-        delete p.users[userToKick];
-        this.changeUserState(userToKick,'online');
-        this.updatePlayersList();
-        this.updatePartiesList();
-        this.sendEvent('client',user,'system','Message','You were kicked from party.');
-        this.emit('removeFromGroup',kickId,pId);
-      }
+  if (this.users[user].state=='party' && this.users[userToKick] && user!=userToKick){
+    var p=this.parties[this.users[user].partyId];
+    if (p.leader==user && p.users[userToKick]){
+      p.curPlayers--;
+      delete p.users[userToKick];
+      this.changeUserState(userToKick,'online');
+      this.updatePlayersList();
+      this.updatePartiesList();
+      this.sendEvent('client',userToKick,'system','Message','You were kicked from party.');
+      this.emit('removeFromGroup',this.users[userToKick].clientId,p.id);
+    }
   }
 };
 
 Server.prototype.addPlayerToParty=function(user,pId){
   var p=this.parties[pId];
-  if (this.users[user].state!='party'){
-    p.users[user]=1;
-    p.curPlayers++;
-    this.changeUserState(user,'party');
-    this.users[user].partyId=pId;
-    this.emit('addToGroup',this.users[user].clientId,pId);
-        this.sendEvent('client',user,'system','Message','You have joined the party.');
-    if (p.maxPlayers>1){
-      this.updatePlayersList();
-      this.updatePartiesList();
-    }
-    if (p.curPlayers==p.maxPlayers)
-      this.createGame(p);
-  } else
-    this.sendEvent('client',user,'system','Error','You have already joined the party.');
+  p.users[user]=1;
+  p.curPlayers++;
+  this.changeUserState(user,'party');
+  this.users[user].partyId=pId;
+  this.emit('addToGroup',this.users[user].clientId,pId);
+      this.sendEvent('client',user,'system','Message','You have joined the party.');
+  if (p.maxPlayers>1){
+    this.updatePlayersList();
+    this.updatePartiesList();
+  }
+  if (p.curPlayers==p.maxPlayers)
+    this.createGame(p);
 };
 
 Server.prototype.addSpectator=function(spectator,user){
-  if (spectator!=user)
+  if (this.users[spectator].state=='online' && spectator!=user){
     if (this.users[user]){
       if (this.users[user].state=='game'){
         var pId=this.users[user].partyId;
@@ -530,6 +522,9 @@ Server.prototype.addSpectator=function(spectator,user){
       this.sendEvent('client',user,'system','Error',user+' not in a game now');
     } else
       this.sendEvent('client',spectator,'system','Error','No such user.');
+  } else
+    this.sendEvent('client',user,'system','Error',
+                   'You are already in a party or a game.');
 };
 
 Server.prototype.createGame=function(args){
@@ -626,7 +621,8 @@ Server.prototype.userNewBestTime=function(e){
     this.users[e.user].profile.rankTotal=parseFloat(rankTotal).toFixed(3);
 
   if (this.db && this.users[e.user].type=='temp')
-    this.sendEvent('client',e.user,'system','Message','Register with /login command to save your achievements');
+    this.sendEvent('client',e.user,'system','Message',
+                   'Register with /login command to save your achievements');
   this.syncDbProfile(e.user);
 };
 

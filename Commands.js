@@ -11,7 +11,7 @@
     '/spec':{f:'addSpectator',d:'/spec <user> - spectate user.'},
     '/leave':{f:'leaveParty',d:'/leave - leave party.'},
     '/create':{f:'createParty',d:'/create <mode> <bSize> <maxplayers> - create party.'},
-//  '/publish':{f:'publishParty',d:'/publish - publish party you are in info to players'},
+//    '/publish':{f:'publishParty',d:'/publish - publish party you are in info to players'},
     '/dismiss':{f:'dismissParty',d:'/dismiss - dismiss a party where you are a leader.'},
     '/kick':{f:'kickPlayerFromParty',d:'/kick <player> - kick player from a party where you are a leader.'},
     '/mute':{f:'mutePlayer',d:'/mute [<player>] - display muted players or mute player.'},

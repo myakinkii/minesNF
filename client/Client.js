@@ -237,6 +237,7 @@ Client.prototype.onHelp=function(help){
   this.renderMessageT(['Use dropdown lists to add and filter parties, or use commands described below.','\n',
       'Default \'add party\' mode is small rank board (single player mode).','\n',
       'Space to focus command input.','\n',
+      'Some commands can be applied to hypertext objects with corresponding keys pressed on click','\n',
       'Available commands:']);
 };
 
