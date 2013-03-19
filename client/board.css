@@ -9,6 +9,9 @@ td {
   border:1px solid black;
   font:11px Arial black;
   background:#ddd;
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  cursor:default;
 }
 
 .cell{width:13px;height:13px;}

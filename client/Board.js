@@ -30,14 +30,14 @@ Board.prototype.getCellValues=function(values){
 };
 
 function Cell(parent,tableId,r,c,TDelement){
-this.parent=parent;
-this.TDelement=TDelement;
-this.id=tableId+'_'+c+'_'+r;
-this.r=r;
-this.c=c;
-this.view={};
-render.call(this,['aimg','cell.png','x',15,15,this.id,'cell',{'onmousedown':this.clickCell}],TDelement);
-this.parent.cells[this.id]=this;
+  this.parent=parent;
+  this.TDelement=TDelement;
+  this.id=tableId+'_'+c+'_'+r;
+  this.r=r;
+  this.c=c;
+  this.view={};
+  render.call(this,['aimg','cell.png','x',15,15,this.id,'cell',{'onmousedown':this.clickCell}],TDelement);
+  this.parent.cells[this.id]=this;
 }
 
 Cell.prototype.clickCell=function(e){
@@ -52,7 +52,6 @@ Cell.prototype.setCellValue=function(value){
     value='X';
   this.TDelement.removeChild(this.TDelement.firstChild);
   if (value!=0){
-//    this.parent.parent.view.command.value=value;
     var span=document.createElement('span')
     span.className='Cell'+value;
     span.appendChild(document.createTextNode(value))

@@ -26,6 +26,7 @@ Client.prototype.initClient=function(){
 // q:81 r:82 s:83 t:84 u:85 v:86 w:87 x:88 y:89 z:90
   this.binds={command:{0:function(o){this.view.command.value=o.val;this.view.command.focus();}},
               user:{0:function(o){this.view.command.value='/to '+o.val+' ';this.view.command.focus();},
+                    73:function(o){window.now.processCommand('/info '+o.val);},
                     75:function(o){window.now.processCommand('/kick '+o.val);},
                     77:function(o){window.now.processCommand('/mute '+o.val);},
                     85:function(o){window.now.processCommand('/umute '+o.val);}},
@@ -197,24 +198,24 @@ Client.prototype.onReauth=function(){
 };
 
 Client.prototype.onError=function(m){
-  this.renderTextMessage('Error: '+m);
+  this.renderTextMessage(m);
 };
 
 Client.prototype.onSystemMessage=function(m){
-  this.renderTextMessage('System: '+m);
+  this.renderTextMessage(m);
 };
 
 Client.prototype.onChatMessage=function(m){
   if (!this.muted[m.from]){
     if (m.type=='shout')
-      var message=[{span:{cN:'ShoutMessage',t:' ! '}},{val:m.from,type:'user'},': '+m.text];
+      var message=[{span:['ShoutMessage',' ! ']},{val:m.from,type:'user'},': '+m.text];
     else if (m.type=='party')
-      var message=[{span:{cN:'PartyMessage',t:' # '}},{val:m.from,type:'user'},': '+m.text];
+      var message=[{span:['PartyMessage',' # ']},{val:m.from,type:'user'},': '+m.text];
     else if (m.type=='private'){
       if (this.user==m.to)
-        var message=[{span:{cN:'PrivateMessage',t:'>> '}},{val:m.from,type:'user'},': '+m.text];
+        var message=[{span:['PrivateMessage','>> ']},{val:m.from,type:'user'},': '+m.text];
       if (this.user==m.from)
-        var message=[{val:m.to,type:'user'},{span:{cN:'PrivateMessage',t:' >> '}},': '+m.text];
+        var message=[{val:m.to,type:'user'},{span:['PrivateMessage',' >> ']},': '+m.text];
     } else
       var message=[{val:m.from,type:'user'},': '+m.text];
     this.renderMessageT(message);
@@ -240,27 +241,39 @@ Client.prototype.onHelp=function(help){
 };
 
 Client.prototype.onTop=function(top10){
-  var message=['Top players:','\n'];
-  var n=1;
-  for (var i=0;i<top10.length;i++){
-    var p=top10[i].profile;
-    message.push(' '+(i+1)+': [',{span:{cN:'Rank'+p.level,t:p.level}},']'+top10[i].user+' - '+p.score,'\n')
+  if (top10[0].profile.score){
+    var message=['Top score players:','\n'];
+    var n=1;
+    for (var i=0;i<top10.length;i++){
+      var p=top10[i].profile;
+      message.push(' '+(i+1)+': ',{user:[top10[i].user,p.level]},' - '+p.score,'\n')
+    }
+    this.renderMessageT(message);
   }
-  this.renderMessageT(message);
+  if (top10[0].profile.rankTotal){
+    var message=['Top time players:','\n'];
+    var n=1;
+    for (var i=0;i<top10.length;i++){
+      var p=top10[i].profile;
+      message.push(' '+(i+1)+': ',{user:[top10[i].user,p.level]},
+                   ' - '+p.rankTotal+'s ('+p.rank.small+'-'+p.rank.medium+'-'+p.rank.big+ ')','\n')
+    }
+    this.renderMessageT(message);
+  }
 };
 
 Client.prototype.onInfo=function(info){
   var p=info.profile;
-  var message=['[',{span:{cN:'Rank'+p.level,t:p.level}},']'+info.user+' score:'+p.score,'\n'];
-  for (var i in p.rank)
-    message.push(' '+i+': '+p.rank[i]+'ms','\n');
+  var message=[{user:[info.user,p.level]},'\n',
+               ' score: '+p.score,'\n',
+               ' total: '+p.rankTotal+'s ('+p.rank.small+'-'+p.rank.medium+'-'+p.rank.big+ ')','\n'];
   this.renderMessageT(message);
 };
 
 Client.prototype.onRanks=function(ranks){
   var message=['In order to get a rank you have to get your times in:','\n'];
   for (var i=1; i<=8;i++) 
-    message.push({span:{cN:'Rank'+i,t:i}},': '+ranks.small[8-i]+'-'+ranks.medium[8-i]+'-'+ranks.big[8-i]+'s ','\n')
+    message.push({span:['Rank'+i,i]},': '+ranks.small[8-i]+'-'+ranks.medium[8-i]+'-'+ranks.big[8-i]+'s ','\n')
   this.renderMessageT(message);
 };
 
@@ -286,7 +299,7 @@ Client.prototype.onUpdatePlayers=function(players){
     this.view.players.removeChild(this.view.players.firstChild)
   var list=[];
   for (var i in players){
-    list.push('[',{span:{cN:'Rank'+players[i].level,t:players[i].level}},'] ',{val:i,type:'user'});
+    list.push({user:[i,players[i].level]});
     if (players[i].state=='game')  
       list.push(' ',{val:'>>',user:i,type:'specPlayer'});
     list.push('\n');
@@ -377,8 +390,15 @@ Client.prototype.transformToRender=function(m){
   var tm=[];
   for (var i in m){
     if (typeof m[i]=='object'){
-      if (m[i].span)
-        tm.push('span',m[i].span.cN,''+m[i].span.t);
+      if (m[i].user){
+        tm.push('/[','span','Rank'+m[i].user[1],''+m[i].user[1],'/]');
+        tm.push('{}',{func:function(o,e){
+                             if (this.binds[o.type][this.key])
+                               this.binds[o.type][this.key].call(this,o);},
+                      style:'user',
+                      o:{val:m[i].user[0],type:'user'}});
+      } else if (m[i].span)
+        tm.push('span',m[i].span[0],''+m[i].span[1]);
       else if (this.binds[m[i].type])
         tm.push('{}',{func:function(o,e){
                              if (this.binds[o.type][this.key])

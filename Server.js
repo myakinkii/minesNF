@@ -76,13 +76,15 @@ Server.prototype.initNewUser=function(user,profile){
   if (profile){
     if (!profile.muted)
       profile.muted={};
+    if (!profile.rankTotal)
+      profile.rankTotal=0;
     if (!profile.score)
       profile.score=0;
     this.users[user].profile=profile;
     this.playersList[user].level=profile.level;
   }
   else{
-    this.users[user].profile={level:0,score:0,muted:{},rank:{},coop:{},versus:{}};
+    this.users[user].profile={level:0,score:0,rankTotal:0,muted:{},rank:{},coop:{},versus:{}};
     this.playersList[user].level=0;
   }
   this.changeUserState(user,'online');
@@ -230,7 +232,7 @@ Server.prototype.sendPrivateMessage=function(user,userTo){
       this.sendEvent('client',userTo,'chat','Message',
                      {from:user,to:userTo,type:'private',text:mes});
     } else {
-     this.sendEvent('client',user,'system','Error',userTo+'is offline.');
+     this.sendEvent('client',user,'system','Error',userTo+' is offline.');
       }
   }
 };
@@ -406,12 +408,17 @@ Server.prototype.showRanks=function(user){
 Server.prototype.playerInfo=function(user,infoUsr){
   if (this.db && infoUsr){
     var self=this;
-    this.db.users.find({user:infoUsr},{_id:0,user:1,"profile.level":1,"profile.rank":1,"profile.score":1},function(err,res){
+    this.db.users.find({user:infoUsr},{_id:0,
+                                       user:1,
+                                       "profile.level":1,
+                                       "profile.rank":1,
+                                       "profile.rankTotal":1,
+                                       "profile.score":1},function(err,res){
       if (!err){
         if (res[0])
           self.sendEvent('client',user,'chat','Info',res[0])
         else
-          self.sendEvent('client',user,'system','Error','No such user.');
+          self.sendEvent('client',user,'system','Error','No such registerred user.');
       } else {
         self.disableDb(err);
         self.sendEvent('client',user,'system','Error','Seems we have some problems with DB. Sry.');
@@ -423,14 +430,33 @@ Server.prototype.playerInfo=function(user,infoUsr){
 Server.prototype.topPlayers=function(user){
   if (this.db){
     var self=this;
-    this.db.users.find({},{_id:0,user:1,"profile.level":1,"profile.score":1}).limit(10).sort({"profile.score":-1},function(err,res){
-      if (!err)
-        self.sendEvent('client',user,'chat','Top',res);
-      else {
+    this.db.users.find({},{_id:0,
+                           user:1,
+                           "profile.level":1,
+                           "profile.score":1}).limit(10).sort({"profile.score":-1},function(err,res){
+      if (err){
         self.disableDb(err);
         self.sendEvent('client',user,'system','Error','Seems we have some problems with DB. Sry.');
-      }
+      } else if (res[0])
+        self.sendEvent('client',user,'chat','Top',res);
     });
+  }
+  if (this.db){
+    var self=this;
+    this.db.users.find({"profile.rankTotal":{"$ne":0}},
+                       {_id:0,
+                        user:1,
+                        "profile.rankTotal":1,
+                        "profile.level":1,
+                        "profile.rank":1}).limit(10).sort({"profile.rankTotal":1},
+                                                          function(err,res){
+                            if (err) {
+                              self.disableDb(err);
+                              self.sendEvent('client',user,'system','Error',
+                                             'Seems we have some problems with DB. Sry.');
+                            } else if (res[0])
+                              self.sendEvent('client',user,'chat','Top',res);
+                                                        });
   }
 };
 
@@ -553,6 +579,8 @@ Server.prototype.versusGameResult=function(e){
     if (e.score[i]>0) 
       score+=e.score[i];
   this.users[e.winner].profile.score+=score;
+  this.sendEvent('client',e.winner,'system','Message',
+      'You earned '+score+' points. Your score is '+this.users[e.winner].profile.score);
   this.syncDbProfile(e.winner);
   this.sendEvent('party',e.partyId,'game','ShowResultVersus',e);
 };
@@ -561,6 +589,8 @@ Server.prototype.coopGameResult=function(e){
   if (e.result=='win')
     for (var i in e.score){
       this.users[i].profile.score+=e.score[i];
+      this.sendEvent('client',i,'system','Message',
+          'You earned '+e.score[i]+' points. Your score is '+this.users[i].profile.score);
       this.syncDbProfile(i);
     };
   this.sendEvent('party',e.partyId,'game','ShowResultCoop',e);
@@ -570,9 +600,11 @@ Server.prototype.userNewBestTime=function(e){
   this.users[e.user].profile.rank[e.bSize]=e.time;
   var times=this.users[e.user].profile['rank'];
   var newRank=8;
+  var rankTotal=0;
   for (var bSize in this.ranks)
   if (!times[bSize] || times[bSize]>=this.ranks[bSize][7]){
     newRank=0;
+    rankTotal=0;
     break;
   } else {
     for (var i=0;i<this.ranks[bSize].length;i++)
@@ -581,6 +613,7 @@ Server.prototype.userNewBestTime=function(e){
           newRank=8-i;
         break;
        };
+    rankTotal+=times[bSize];
   }
 
   if (newRank>0){
@@ -588,6 +621,9 @@ Server.prototype.userNewBestTime=function(e){
     this.playersList[e.user].level=newRank;
     this.updatePlayersList();
   }
+
+  if (rankTotal>0)
+    this.users[e.user].profile.rankTotal=parseFloat(rankTotal).toFixed(3);
 
   if (this.db && this.users[e.user].type=='temp')
     this.sendEvent('client',e.user,'system','Message','Register with /login command to save your achievements');
