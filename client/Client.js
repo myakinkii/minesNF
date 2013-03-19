@@ -30,7 +30,7 @@ Client.prototype.initClient=function(){
                     75:function(o){window.now.processCommand('/kick '+o.val);},
                     77:function(o){window.now.processCommand('/mute '+o.val);},
                     85:function(o){window.now.processCommand('/umute '+o.val);}},
-              specPlayer:{0:function(o){window.now.processCommand('/spec '+o.user);}},
+              specPlayer:{0:function(o){window.now.processCommand('/spec '+o.spec);}},
               party:{0:function(o){this.view.command.value='# ';this.view.command.focus();},
                      68:function(o){window.now.processCommand('/dismiss');}},
               joinParty:{0:function(o){window.now.processCommand('/join '+o.id);}}
@@ -301,7 +301,7 @@ Client.prototype.onUpdatePlayers=function(players){
   for (var i in players){
     list.push({user:[i,players[i].level]});
     if (players[i].state=='game')  
-      list.push(' ',{val:'>>',user:i,type:'specPlayer'});
+      list.push(' ',{val:'>>',spec:i,type:'specPlayer'});
     list.push('\n');
   }
   if (list.length){

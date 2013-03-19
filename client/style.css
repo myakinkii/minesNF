@@ -25,7 +25,7 @@ div#Side
 
 div.messageBlock
 {
- width:600px;
+ width:500px;
  white-space: pre-wrap;
  word-wrap: break-word;
 }
