@@ -3,15 +3,22 @@
 ##TODO
 * ?
 
+## v0.1.2 beta
+* small fixes 
+ 
+## v0.1.1 beta
+* /ping
+* hypertext help command 
+* chat commands availability in game mode
+* /ranks, /top, and /info
+
 ## v0.1 beta
 * rank,coop, versus modes
 * spec game
 * create, dismiss, join party, kick users
 * gui for filtering and creating parties
 * key+click on some hypertext (dismiss party, kick user)
-* chat: shout, pm, party messages
-* mute and umute
-* top and info
+* shout, pm, party messages
+* /mute and /umute
 * db stored registerred users' profiles
-* ping
 
