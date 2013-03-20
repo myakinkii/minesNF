@@ -407,6 +407,10 @@ Server.prototype.showRanks=function(user){
   this.sendEvent('client',user,'chat','Ranks',this.ranks)
 };
 
+Server.prototype.testPing=function(user,time){
+  this.sendEvent('client',user,'chat','Ping',time)
+};
+
 Server.prototype.playerInfo=function(user,infoUsr){
   if (this.db && infoUsr){
     var self=this;

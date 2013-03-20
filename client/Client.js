@@ -49,17 +49,23 @@ Client.prototype.initClient=function(){
   getTag('body').removeChild(getId('warning'));
   this.initHandlers();
   render.call(this,['#Main',
-                     ['#auth','#filter',
+                     ['#auth',
+                      '#filter',
                         ['select',{all:'mode: all',coop:'coop',rank:'rank',versus:'versus'},
                                   {'onchange':this.filterParamsChange},0,'mode',
-                         'select',{all:'board: all',s:'small',m:'medium',b:'big'},{'onchange':this.filterParamsChange},0,'bSize',
-                         'select',{0:'players: *',1:1,2:2,3:3,4:4},{'onchange':this.filterParamsChange},0,'maxPlayers',
-                         'select',{0:'min level: 0',1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8},{'onchange':this.filterParamsChange},0,'minLevel',
-                         'select',{0:'max level: *',1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8},{'onchange':this.filterParamsChange},0,'maxLevel',
+                         'select',{all:'board: all',s:'small',m:'medium',b:'big'},
+                                  {'onchange':this.filterParamsChange},0,'bSize',
+                         'select',{0:'players: *',1:1,2:2,3:3,4:4},
+                                  {'onchange':this.filterParamsChange},0,'maxPlayers',
+                         'select',{0:'min level: 0',1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8},
+                                  {'onchange':this.filterParamsChange},0,'minLevel',
+                         'select',{0:'max level: *',1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8},
+                                  {'onchange':this.filterParamsChange},0,'maxLevel',
                          'a','add party','addParty',null,{'onclick':this.addParty}],
-                      '#parties','#game','#chat',
-                        ['input',100,'','command',null,
-                        {'onkeypress':this.sendMessage},'br']],
+                      '#parties',
+                      '#game',
+                      '#chat',
+                        ['input',100,'','command',null,{'onkeypress':this.sendMessage},'br']],
                     '#Side',['#players'],
                    ],toTag('body'));
 };
@@ -86,7 +92,10 @@ Client.prototype.keyUp=function(e){
 Client.prototype.sendMessage=function(e){
   var key=e.keyCode||e.which;
   if(key==13 && this.view.command.value.length>0){
-    window.now.processCommand(this.view.command.value);
+    if (this.view.command.value=='/ping')
+      this.sendPing();
+    else
+      window.now.processCommand(this.view.command.value);
     this.view.command.value='';
   }
 };
@@ -147,6 +156,7 @@ Client.prototype.initHandlers=function(){
   this.registerHandler('Help','chat',this.onHelp,this);
   this.registerHandler('Top','chat',this.onTop,this);
   this.registerHandler('Info','chat',this.onInfo,this);
+  this.registerHandler('Ping','chat',this.onPing,this);
   this.registerHandler('Ranks','chat',this.onRanks,this);
   this.registerHandler('Muted','chat',this.onMuted,this);
   this.registerHandler('UpdateMuted','chat',this.onUpdateMuted,this);
@@ -261,6 +271,20 @@ Client.prototype.onTop=function(top10){
     }
     this.renderMessageT(message);
   }
+};
+
+Client.prototype.sendPing=function(){
+  var n=1;
+  window.now.processCommand('/ping '+Date.now());
+  var ping=window.setInterval(function(){
+    if (n++>2) 
+      window.clearInterval(ping);
+    else
+      window.now.processCommand('/ping '+Date.now())},500);
+};
+
+Client.prototype.onPing=function(time){
+  this.renderTextMessage('Got response in '+(Date.now()-time)+'ms');
 };
 
 Client.prototype.onInfo=function(info){

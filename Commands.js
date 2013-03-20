@@ -5,6 +5,7 @@
   module.exports.chat={
     '/ranks':{f:'showRanks',d:'/ranks - get info about ranks and times.'},
     '/top':{f:'topPlayers',d:'/top - get top10.'},
+    '/ping':{f:'testPing',d:'/ping - test connection latency.'},
     '/info':{f:'playerInfo',d:'/info <player> - get player info.'},
     '/to':{f:'sendPrivateMessage',d:'/to <player> <text> - send private message.'},
     '/join':{f:'joinParty',d:'/join <partyId> - join party.'},

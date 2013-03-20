@@ -13,4 +13,5 @@
 * mute and umute
 * top and info
 * db stored registerred users' profiles
+* ping
 
