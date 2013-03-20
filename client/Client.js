@@ -95,7 +95,7 @@ Client.prototype.keyUp=function(e){
 Client.prototype.sendMessage=function(e){
   var key=e.keyCode||e.which;
   if(key==13 && this.view.command.value.length>0){
-    if (/^\/ping /.test(this.view.command.value))
+    if (/^\/ping( |$)/.test(this.view.command.value))
       this.sendPing();
     else
       window.now.processCommand(this.view.command.value);
