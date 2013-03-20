@@ -3,16 +3,16 @@
 ##TODO
 * ?
 
-## v0.1.2 beta
+## v0.1.2
 * small fixes 
  
-## v0.1.1 beta
+## v0.1.1
 * /ping
 * hypertext help command 
 * chat commands availability in game mode
 * /ranks, /top, and /info
 
-## v0.1 beta
+## v0.1
 * rank,coop, versus modes
 * spec game
 * create, dismiss, join party, kick users
