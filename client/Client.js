@@ -81,8 +81,11 @@ Client.prototype.keyUp=function(e){
         this.view.command.value='';
         this.view.command.focus();
     }
-    if (this.key==32)
+    if (this.key==32){
+      if (this.state!='online')
+        this.view.command.value='#';
       this.view.command.focus();
+    }
   } else 
     if (this.key==27) 
       this.view.command.blur();
@@ -92,7 +95,7 @@ Client.prototype.keyUp=function(e){
 Client.prototype.sendMessage=function(e){
   var key=e.keyCode||e.which;
   if(key==13 && this.view.command.value.length>0){
-    if (this.view.command.value=='/ping')
+    if (/^\/ping /.test(this.view.command.value))
       this.sendPing();
     else
       window.now.processCommand(this.view.command.value);
@@ -171,6 +174,7 @@ Client.prototype.initHandlers=function(){
 
 Client.prototype.onAuthorize=function(auth){
   this.user=auth.user;
+  this.state='online';
   this.muted=auth.profile.muted;
   if (this.view.auth.firstChild)
     this.view.auth.removeChild(this.view.auth.firstChild);
@@ -238,17 +242,24 @@ Client.prototype.onNAMessages=function(messages){
 };
 
 Client.prototype.onWelcome=function(m){
-  this.renderMessageT(['Type ',{val:'/help',type:'command'},' to get commands info.']);
+  this.renderMessageT([
+    'Welcome.','\n',
+    'Have fun, respect other players, or prepare to be muted.','\n',
+    'Default chat language is English.','\n',
+    'Type ', {val:'/ping',type:'command'},' to estimate latency.','\n',
+    'High latency value can make your game uncomfortable, depending on your skill level.','\n',
+    'Type ',{val:'/help',type:'command'},' to get help ;).']);
 };
 
 Client.prototype.onHelp=function(help){
   for (var i in help)
-    this.renderTextMessage(help[i].d);
-  this.renderMessageT(['Use dropdown lists to add and filter parties, or use commands described below.','\n',
-      'Default \'add party\' mode is small rank board (single player mode).','\n',
-      'Space to focus command input.','\n',
-      'Some commands can be applied to hypertext objects with corresponding keys pressed on click','\n',
-      'Available commands:']);
+    this.renderMessageT([' ',{val:i,type:'command'},help[i].d]);
+  this.renderMessageT([
+    'Use dropdown lists to add and filter parties, or use commands described below.','\n',
+    'Default \'add party\' mode is small rank board (single player mode).','\n',
+    'Space to focus command input.','\n',
+    'Some commands can be applied to hypertext objects with corresponding keys pressed on click','\n',
+    'Available commands:']);
 };
 
 Client.prototype.onTop=function(top10){
@@ -324,6 +335,8 @@ Client.prototype.onUpdatePlayers=function(players){
     this.view.players.removeChild(this.view.players.firstChild)
   var list=[];
   for (var i in players){
+    if (this.user==i)
+      this.state=players[i].state;
     list.push({user:[i,players[i].level]});
     if (players[i].state=='game')  
       list.push(' ',{val:'>>',spec:i,type:'specPlayer'});
