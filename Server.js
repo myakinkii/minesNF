@@ -1,13 +1,13 @@
-var fork = require('child_process').fork;
+tate:
 var EventEmitter=require('events').EventEmitter;
 
 function Server(db,st){
   this.singleThread=st;
   this.db=db;
-  this.users={};
-  this.playersList={};
+  this.users={}; // actual user objects
+  this.playersList={}; // to send to clients
   this.tempUsers=0;
-  this.connectSids={};
+  this.connectSids={}; //socket.io sids
   this.NaMessages={};
   this.killTimers={};
   this.partyCounter=1;
@@ -58,11 +58,11 @@ Server.prototype.showHelp=function(user){
     this.sendEvent('client',user,'chat','Help',this.chatCommands);
 };
 
-Server.prototype.initAuth=function(caller){
+Server.prototype.initAuth=function(caller){ //new connection or failed Login command
   if (this.connectSids[caller.cookie['connect.sid']]){
     var user=this.connectSids[caller.cookie['connect.sid']];
-    this.initUser(caller,user,this.users[user].type);
-  } else {
+    this.initUser(caller,user,this.users[user].type); // reconnected
+  } else { //new connection
     var user='user'+this.tempUsers++;
     this.initNewUser(user);
     this.initUser(caller,user,'temp');
@@ -70,7 +70,7 @@ Server.prototype.initAuth=function(caller){
   }
 };
 
-Server.prototype.initNewUser=function(user,profile){
+Server.prototype.initNewUser=function(user,profile){ //actually inits this.users[user] and this.playersList[user]
   this.users[user]={};
   this.playersList[user]={};
   if (profile){
@@ -91,7 +91,7 @@ Server.prototype.initNewUser=function(user,profile){
   this.changeUserState(user,'online');
 };
 
-Server.prototype.initUser=function(caller,user,flag){
+Server.prototype.initUser=function(caller,user,flag){ //finishes user init when this.users[user] is created
   this.users[user].clientId=caller.clientId;
   this.connectSids[caller.cookie['connect.sid']]=user;
   this.users[user].connectSid=caller.cookie['connect.sid'];
@@ -239,6 +239,15 @@ Server.prototype.sendPrivateMessage=function(user,userTo){
     } else {
      this.sendEvent('client',user,'system','Error',userTo+' is offline.');
       }
+  }
+};
+
+Server.prototype.processTcpCommand=function(sName,s){
+  var pars=s.split(' ');
+  var command=pars[0];
+  pars[0]=sName;
+  if (this.chatCommands[command]){
+      this[this.chatCommands[command].f].apply(this,pars);
   }
 };
 
@@ -425,7 +434,7 @@ Server.prototype.playerInfo=function(user,infoUsr){
           self.sendEvent('client',user,'chat','Info',res[0])
         else
           self.sendEvent('client',user,'system','Error',
-                         'No such registerred user.');
+                         'No such registered user.');
       } else {
         self.disableDb(err);
         self.sendEvent('client',user,'system','Error',
@@ -687,7 +696,8 @@ Server.prototype.sendEvent=function(dst,dstId,contextId,func,arg){
   }
   if (dst=='client'){
     e.usr=dstId;
-    e.clientId=this.users[dstId].clientId;
+    if(this.users[dstId])
+      e.clientId=this.users[dstId].clientId;
   }
   if (dst=='party')
      e.partyId=dstId;
