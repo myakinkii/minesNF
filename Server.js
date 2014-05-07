@@ -1,4 +1,4 @@
-tate:
+var fork = require('child_process').fork;
 var EventEmitter=require('events').EventEmitter;
 
 function Server(db,st){
