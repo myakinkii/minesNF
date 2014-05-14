@@ -178,7 +178,7 @@ Client.prototype.onAuthorize=function(auth){
   this.muted=auth.profile.muted;
   if (this.view.auth.firstChild)
     this.view.auth.removeChild(this.view.auth.firstChild);
-  if (auth.flag=='temp'){
+  if (auth.type=='temp'){
     render.call(this,
                 ['#ID'+this.user,
                 ['input',5,this.user,'login',null,{'onkeypress':this.logIn},
@@ -208,7 +208,8 @@ Client.prototype.onAuthFail=function(m){
 };
 
 Client.prototype.onReauth=function(){
-  window.now.initAuth();
+//  window.now.initAuth();
+  location.reload();
 };
 
 Client.prototype.onError=function(m){

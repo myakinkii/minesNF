@@ -1,55 +1,34 @@
-tate:
+var fork=require('child_process').fork;
 var EventEmitter=require('events').EventEmitter;
 
 function Server(db,st){
   this.singleThread=st;
   this.db=db;
-  this.users={}; // actual user objects
+  this.users={}; // user profiles
   this.playersList={}; // to send to clients
-  this.tempUsers=0;
-  this.connectSids={}; //socket.io sids
   this.NaMessages={};
-  this.killTimers={};
-  this.partyCounter=1;
+  this.partyCounter=0;
+  this.maxPartyId=2;
   this.parties={};
   this.games={};
+
+  this.idCounter=0;
+  this.maxCount=10;
+  this.connections={};
+  this.groups={};
+  this.sockets={}
+  this.connectSids={};
+  this.sockNames={};
+  this.killTimers={};
+
   this.modes=require('./Modes.js').modes;
   this.boards=require('./Modes.js').boards;
   this.ranks=require('./Modes.js').ranks;
   this.gameCommands=require('./Commands.js').game;
   this.chatCommands=require('./Commands.js').chat;
-}
+};
 
 Server.prototype=EventEmitter.prototype;
-
-Server.prototype.userConnected=function(caller){
-  this.sendEvent('clientId',caller.clientId,'auth','InitClient');
-  this.initAuth(caller);
-};
-
-Server.prototype.userDisconnected=function(caller){
-  if(this.connectSids[caller.cookie['connect.sid']]){
-    var user=this.connectSids[caller.cookie['connect.sid']];
-    if (this.users[user].type=='registered' || this.users[user].state!='online'){
-      this.users[user].NA=1;
-      var self=this;
-      this.killTimers[user]=setTimeout(function(){self.killPlayerByTimeout.call(self,user)},30000);
-      if (this.users[user].partyId)
-        this.sendEvent('party',this.users[user].partyId,'system','Message',user+' disconnected');
-    } else
-      this.systemLogoff(user);
-    console.log(user+' disconnected');
-  }
-};
-
-Server.prototype.killPlayerByTimeout=function(user){
-  if (this.users[user]){
-    if (this.users[user].partyId)
-     this.sendEvent('party',this.users[user].partyId,'system','Message',user+' killed by timeout');
-    this.systemLogoff(user)
-    console.log(user+' klled by timeout');
-  }
-};
 
 Server.prototype.showHelp=function(user){
 //  if (this.users[user].state=='game')
@@ -58,56 +37,30 @@ Server.prototype.showHelp=function(user){
     this.sendEvent('client',user,'chat','Help',this.chatCommands);
 };
 
-Server.prototype.initAuth=function(caller){ //new connection or failed Login command
-  if (this.connectSids[caller.cookie['connect.sid']]){
-    var user=this.connectSids[caller.cookie['connect.sid']];
-    this.initUser(caller,user,this.users[user].type); // reconnected
-  } else { //new connection
-    var user='user'+this.tempUsers++;
-    this.initNewUser(user);
-    this.initUser(caller,user,'temp');
-    this.sendEvent('client',user,'chat','Welcome');
-  }
-};
+Server.prototype.init=function(user,profile){ 
 
-Server.prototype.initNewUser=function(user,profile){ //actually inits this.users[user] and this.playersList[user]
-  this.users[user]={};
-  this.playersList[user]={};
+  if (!this.users[user]){
+    this.users[user]={};
+    this.users[user].type='temp';
+    this.users[user].profile={level:0,score:0,rankTotal:0,
+                              muted:{},rank:{},coop:{},versus:{}};
+    this.playersList[user]={};
+    this.playersList[user].level=0;
+    this.sendEvent('client',user,'chat','Welcome');
+    this.changeUserState(user,'online');
+  }
+
   if (profile){
-    if (!profile.muted)
-      profile.muted={};
-    if (!profile.rankTotal)
-      profile.rankTotal=0;
-    if (!profile.score)
-      profile.score=0;
+    this.users[user].type='registered';
     this.users[user].profile=profile;
     this.playersList[user].level=profile.level;
   }
-  else{
-    this.users[user].profile={level:0,score:0,rankTotal:0,
-                              muted:{},rank:{},coop:{},versus:{}};
-    this.playersList[user].level=0;
-  }
-  this.changeUserState(user,'online');
-};
 
-Server.prototype.initUser=function(caller,user,flag){ //finishes user init when this.users[user] is created
-  this.users[user].clientId=caller.clientId;
-  this.connectSids[caller.cookie['connect.sid']]=user;
-  this.users[user].connectSid=caller.cookie['connect.sid'];
-  this.users[user].type=flag;
-  this.users[user].NA=0;
-
-  if (this.killTimers[user]){
-    clearTimeout(this.killTimers[user]);
-    delete this.killTimers[user];
-  }
-
-  if (flag=='registered'){
+  if (this.users[user].type=='registered'){
     this.sendEvent('everyone',null,'system','Message',user+' connected.');
   }
   this.sendEvent('client',user,'auth','Authorize',
-                 {user:user,flag:flag,profile:this.users[user].profile});
+                 {user:user,type:this.users[user].type,profile:this.users[user].profile});
   this.sendEvent('client',user,'chat','UpdateParties',this.parties);
 
   if (this.NaMessages[user]){
@@ -117,113 +70,57 @@ Server.prototype.initUser=function(caller,user,flag){ //finishes user init when 
 
   if (this.users[user].partyId){
     this.sendEvent('party',this.users[user].partyId,'system','Message',user+' connected');
-    this.emit('addToGroup',this.users[user].clientId,this.users[user].partyId);
+//    this.emit('addToGroup',this.users[user].clientId,this.users[user].partyId);
+    this.addToGroup(user,this.users[user].partyId);
   }
 
   if (this.users[user].state=='game')
     this.execGameCommand(this.users[user].partyId,user,'initGUI');
 
   this.updatePlayersList();
-  console.log(user+'.'+flag+' connected');
+  console.log(user+'.'+this.users[user].type+' connected');
 };
 
-Server.prototype.kickUser=function(user){
-  this.sendEvent('client',user,'system','Error','Someone kicked your ass');
-  if (this.users[user].state=='game');
-    this.sendEvent('client',user,'game','EndGame');
-  delete this.connectSids[this.users[user].connectSid];
-  this.sendEvent('client',user,'auth','Reauth');
-  console.log(user+' kicked');
-};
+Server.prototype.kill=function(user){
 
-Server.prototype.logOff=function(user){
-  if (this.users[user].state=='online' && this.users[user].type=='registered'){
-    this.sendEvent('everyone',null,'system','Message',user+' has logged off.');
-    this.systemLogoff(user,1);
-    console.log(user+' has logged off.');
-  } else
-    this.sendEvent('client',user,'system','Error','You cannot do this.');
-};
-
-Server.prototype.systemLogoff=function(user,reauth){
-  var clientId=this.users[user].clientId;
   if (this.users[user].state=='party')
     this.leaveParty(user);
+
   if (this.users[user].state=='game')
-    this.execGameCommand(this.users[user].partyId,user,'quitGame');
-  if (this.users[user].state=='online')  // in singleThread mode always true
-    this.deleteUser(user);
-  else { // because in multithread mode we cannot call deleteUser synchronously
+    this.execGameCommand(this.users[user].partyId,user,'quitGame'); // can be async call 
+
+  if (this.users[user].state=='online'){  // in singleThread mode always true
+    delete this.users[user];
+    delete this.playersList[user];
+    this.updatePlayersList();
+  }
+  else { // because in multithread mode we cannot delete user synchronously
     var self=this;
     var wait=setInterval(function(){
           if (self.users[user].state=='online'){
-            self.deleteUser.call(self,user);
+            delete self.users[user];
+            delete self.playersList[user];
+            self.updatePlayersList.call(self);
             clearInterval(wait);
           }
         },50);
   }
-  this.updatePlayersList();
-  if (reauth)
-    this.sendEvent('clientId',clientId,'auth','Reauth');
 };
 
 Server.prototype.disableDb=function(err){
   delete this.db;
   console.log(err.toString());
-};
-
-Server.prototype.logIn=function(caller,user,passwd){
-  var callerName=this.connectSids[caller.cookie['connect.sid']];
-  var reg=/(^user\d+$)/ig; // to check if temp names e.g. user0 being used
-  if (this.users[callerName].state=='online' && user!='' && passwd!='' && !reg.test(user)  && this.db){
-    var self=this;
-    this.db.users.find({user:user},{user:1,passwd:1,profile:1},function(err,res){
-      if (err){
-        self.disableDb(err);
-        self.sendEvent('client',callerName,'system','Message',
-                       'Login failed due to some problems with DB. Login disabled.');
-      } else {
-        if(res[0]){
-          if (res[0].passwd==passwd){
-            self.systemLogoff.call(self,callerName);
-            if (self.users[user])
-              self.kickUser.call(self,user);
-            else
-              self.initNewUser.call(self,user,res[0].profile);
-            self.initUser.call(self,caller,user,'registered');
-          }  else{
-             self.sendEvent('client',callerName,'auth','AuthFail',
-               'Auth for user "'+user+'" failed or user is already registered.');
-             self.initAuth(caller);
-          }
-        } else if(self.db) {
-          var profile=self.users[callerName].profile;
-          self.db.users.insert({user:user,passwd:passwd,profile:profile},function(err){
-            if (!err){
-              self.systemLogoff.call(self,callerName);
-              self.initNewUser.call(self,user,profile);
-              self.initUser.call(self,caller,user,'registered');
-            }
-          });
-        }
-      }});
-  } else
-    this.sendEvent('client',callerName,'system','Error','You cannot do this now.');
+  self.sendEvent('client',user,'system','Error',
+                 'Seems we have some problems with DB. Sry.');
 };
 
 Server.prototype.updatePlayersList=function(){
   this.sendEvent('everyone',null,'chat','UpdatePlayers',this.playersList);
+//  this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
 };
 
 Server.prototype.updatePartiesList=function(){
   this.sendEvent('everyone',null,'chat','UpdateParties',this.parties);
-};
-
-Server.prototype.deleteUser=function(user){
-  delete this.connectSids[this.users[user].connectSid];
-  delete this.users[user];
-  delete this.playersList[user];
-  this.updatePlayersList();
 };
 
 Server.prototype.sendPrivateMessage=function(user,userTo){
@@ -242,28 +139,15 @@ Server.prototype.sendPrivateMessage=function(user,userTo){
   }
 };
 
-Server.prototype.processTcpCommand=function(sName,s){
-  var pars=s.split(' ');
-  var command=pars[0];
-  pars[0]=sName;
-  if (this.chatCommands[command]){
-      this[this.chatCommands[command].f].apply(this,pars);
-  }
-};
+Server.prototype.processCommand=function(user,s){
 
-Server.prototype.processCommand=function(caller,s){
+  console.log(s);
+
   var pars=s.split(' ');
   var command=pars[0];
   var isCommand=0;
-  var user=this.connectSids[caller.cookie['connect.sid']];
   if (this.chatCommands[command]){
-    if (command=='/login')
-      pars[0]=caller;
-    else
       pars[0]=user;
-//    if (this.users[user].state=='game' && command!='/to')
-//      this.sendEvent('client',user,'system','Error','You cannot do this now');
-//    else
       this[this.chatCommands[command].f].apply(this,pars);
     isCommand=1;
   }
@@ -311,10 +195,19 @@ Server.prototype.prepareMessage=function(s){
     return null;
 };
 
+Server.prototype.getPartyId=function(){
+  do {
+    if (this.partyCounter==this.maxPartyId)
+      this.partyCounter=0;
+    this.partyCounter++;
+  } while (this.parties[this.partyCounter] || this.games[this.partyCounter])
+  return this.partyCounter;
+};
+
 Server.prototype.createParty=function(user,mode,bSize,m,min,max){
   if (this.users[user].state=='online'){
     if (this.modes[mode] && this.boards[bSize]){
-      var partyId=this.partyCounter++;
+      var partyId=this.getPartyId();
 
       var maxPlayers=parseInt(m)||this.modes[mode][bSize].min;
       if (maxPlayers<this.modes[mode][bSize].min)
@@ -380,7 +273,8 @@ Server.prototype.dismissParty=function(user){
     if (this.parties[pId].leader==user){
       var p=this.parties[pId];
       for(var u in p.users){
-        this.emit('removeFromGroup',this.users[u].clientId,pId);
+//        this.emit('removeFromGroup',this.users[u].clientId,pId);
+        this.removeFromGroup(u,pId);
         this.changeUserState(u,'online');
         delete this.users[u].partyId;
         this.sendEvent('client',u,'system','Message','Party dismissed.');
@@ -406,7 +300,8 @@ Server.prototype.leaveParty=function(user){
         this.updatePLayersList();
         this.updatePartiesList();
         this.sendEvent('party',p.id,'system','Message',user+' left party.');
-        this.emit('removeFromGroup',this.users[user].clientId,p.id);
+//        this.emit('removeFromGroup',this.users[user].clientId,p.id);
+        this.removeFromGroup(user,p.id);
     }
   } else    
     this.sendEvent('client',user,'system','Error','Not in a party now');
@@ -437,8 +332,6 @@ Server.prototype.playerInfo=function(user,infoUsr){
                          'No such registered user.');
       } else {
         self.disableDb(err);
-        self.sendEvent('client',user,'system','Error',
-                       'Seems we have some problems with DB. Sry.');
       }
     });
   }
@@ -462,11 +355,9 @@ Server.prototype.topPlayers=function(user){
   for (var i=0;i<2;i++)
     if (this.db)
       this.db.users.find(where[i],fields[i]).limit(10).sort(sort[i],function(err,res){
-        if (err) {
+        if (err)
           self.disableDb(err);
-          self.sendEvent('client',user,'system','Error',
-                         'Seems we have some problems with DB. Sry.');
-        } else if (res[0])
+        else if (res[0])
           self.sendEvent('client',user,'chat','Top',res);
     });
 };
@@ -500,7 +391,8 @@ Server.prototype.kickPlayerFromParty=function(user,userToKick){
       this.updatePlayersList();
       this.updatePartiesList();
       this.sendEvent('client',userToKick,'system','Message','You were kicked from party.');
-      this.emit('removeFromGroup',this.users[userToKick].clientId,p.id);
+//      this.emit('removeFromGroup',this.users[userToKick].clientId,p.id);
+      this.removeFromGroup(userToKick,p.id);
     }
   }
 };
@@ -511,7 +403,8 @@ Server.prototype.addPlayerToParty=function(user,pId){
   p.curPlayers++;
   this.changeUserState(user,'party');
   this.users[user].partyId=pId;
-  this.emit('addToGroup',this.users[user].clientId,pId);
+//  this.emit('addToGroup',this.users[user].clientId,pId);
+  this.addToGroup(user,pId);
       this.sendEvent('client',user,'system','Message','You have joined the party.');
   if (p.maxPlayers>1){
     this.updatePlayersList();
@@ -530,7 +423,8 @@ Server.prototype.addSpectator=function(spectator,user){
         this.updatePlayersList();
         this.users[spectator].partyId=pId;
         this.execGameCommand(pId,spectator,'addSpectator');
-        this.emit('addToGroup',this.users[spectator].clientId,pId);
+//        this.emit('addToGroup',this.users[spectator].clientId,pId);
+        this.addToGroup(spectator,pId);
       } else
       this.sendEvent('client',user,'system','Error',user+' not in a game now');
     } else
@@ -658,7 +552,8 @@ Server.prototype.usersLeaveGame=function(users,game){
     delete this.users[u].partyId;
     this.sendEvent('client',u,'game','EndGame');
     this.sendEvent('client',u,'system','Message','You have left '+game.name);
-    this.emit('removeFromGroup',this.users[u].clientId,game.partyId);
+//    this.emit('removeFromGroup',this.users[u].clientId,game.partyId);
+    this.removeFromGroup(u,game.partyId);
     console.log(u+' left '+game.name);
   }
 };
@@ -689,19 +584,206 @@ Server.prototype.userNA=function(e){
   }
 };
 
+Server.prototype.addToGroup=function(user,partyId){
+  this.emit('addToGroup',user,partyId);
+};
+
+Server.prototype.removeFromGroup=function(user,partyId){
+  this.emit('removeFromGroup',user,partyId);
+};
+
 Server.prototype.sendEvent=function(dst,dstId,contextId,func,arg){
   var e={dst:dst,contextId:contextId,func:func,arg:arg}
-  if (dst=='clientId'){
-    e.clientId=dstId;
-  }
-  if (dst=='client'){
-    e.usr=dstId;
-    if(this.users[dstId])
-      e.clientId=this.users[dstId].clientId;
-  }
-  if (dst=='party')
-     e.partyId=dstId;
+  if (dst=='client') e.usr=dstId;
+  if (dst=='party') e.partyId=dstId;
   this.emit('event',e);
+};
+
+
+Server.prototype.addUserToGroup=function(name,gId){
+  if (!this.groups[gId])
+    this.groups[gId]={users:{},n:0};
+  this.groups[gId].users[name]=this.connections[name].type;
+  this.groups[gId].n++;
+};
+
+Server.prototype.removeUserFromGroup=function(name,gId){
+  delete this.groups[gId].users[name];
+  this.groups[gId].n--;
+  if (this.groups[gId].n==0)
+    delete this.groups[gId];
+};
+
+Server.prototype.createTempUser=function(){
+  var name='';
+
+  do {
+    if (this.idCounter==this.maxCount)
+      this.idCounter=0;
+    name ='user'+this.idCounter++;
+  } while (this.connections[name])
+
+  this.connections[name]={};
+  return name;
+};
+
+Server.prototype.processCommandTcp=function(socket,s){
+  var sockName=socket.remoteAddress + "_" + socket.remotePort 
+  var user=this.sockNames[sockName]; 
+  this.processCommand(user,s);
+};
+
+Server.prototype.processCommandWs=function(caller,s){
+  this.processCommand(this.connectSids[caller.cookie['connect.sid']],s);
+};
+
+Server.prototype.userConnectedTcp=function(socket){
+  var user=this.createTempUser();
+  this.setTcpUserProperties(user,socket);
+  this.userConnected(user);
+};
+
+Server.prototype.userDisconnectedTcp=function(socket){
+  var sockName=socket.remoteAddress + "_" + socket.remotePort 
+  var user=this.sockNames[sockName]; 
+  if (user)
+    this.userDisconnected(user);
+};
+
+Server.prototype.setTcpUserProperties=function(user,socket){
+  this.connections[user].type='tcp';
+  this.connections[user].sock=socket;
+  var sockName=socket.remoteAddress+"_"+socket.remotePort 
+  this.sockNames[sockName]=user;
+  this.connections[user].sockName=sockName;
+};
+
+Server.prototype.userConnectedWs=function(caller){
+  if (this.connectSids[caller.cookie['connect.sid']])
+    var user=this.connectSids[caller.cookie['connect.sid']];
+  else 
+    var user=this.createTempUser();
+  
+  this.setWsUserProperties(user,caller);
+  this.sendEvent('client',user,'auth','InitClient');
+  this.userConnected(user);
+};
+
+Server.prototype.setWsUserProperties=function(user,caller){
+  this.connections[user].type='ws';
+  this.connections[user].clientId=caller.clientId;
+  this.connectSids[caller.cookie['connect.sid']]=user;
+  this.connections[user].connectSid=caller.cookie['connect.sid'];
+};
+
+Server.prototype.bind=function(user,newUser){
+  var u=this.connections[user];
+  this.connections[newUser]={};
+  for (var i in u)
+    this.connections[newUser][i]=u[i];
+
+  if (u.type=='ws')
+    this.connectSids[u.connectSid]=newUser;
+  else
+    this.sockNames[u.sockName]=newUser;
+
+  delete this.connections[user];
+};
+
+Server.prototype.deleteUser=function(user){
+  var u=this.connections[user];
+  if (u.type=='ws')
+    delete this.connectSids[u.connectSid];
+  else
+    delete this.sockNames[u.sockName];
+  delete this.connections[user];
+};
+
+Server.prototype.userConnected=function(user){
+  this.connections[user].NA=0;
+  if (this.killTimers[user]){
+    clearTimeout(this.killTimers[user]);
+    delete this.killTimers[user];
+  }
+  this.init(user);  
+};
+
+Server.prototype.userDisconnectedWs=function(caller){
+  var user=this.connectSids[caller.cookie['connect.sid']];
+  if (user)
+    this.userDisconnected(user);
+};
+
+Server.prototype.userDisconnected=function(user){
+    this.connections[user].NA=1;
+    var self=this;
+    this.killTimers[user]=setTimeout(function(){self.killPlayerByTimeout.call(self,user)},30000);
+    if (self.users[user].partyId)
+      this.sendEvent('party',this.users[user].partyId,'system','Message',user+' disconnected');
+    console.log(user+' disconnected');
+};
+
+Server.prototype.killPlayerByTimeout=function(user){
+  if (this.connections[user]){
+    if (this.users[user].partyId)
+     this.sendEvent('party',this.users[user].partyId,'system','Message',user+' killed by timeout');
+    this.systemLogoff(user)
+    console.log(user+' klled by timeout');
+  }
+};
+
+Server.prototype.logIn=function(callerName,user,passwd){
+  var reg=/(^user\d+$)/ig; // to check if temp names e.g. user0 being used
+  if (this.users[callerName].state=='online' && user!='' && passwd!='' && !reg.test(user)  && this.db){
+    var self=this;
+    this.db.users.find({user:user},{user:1,passwd:1,profile:1},function(err,res){
+      if (err)
+        self.disableDb(err);
+      else {
+        if(res[0]){
+          if (res[0].passwd==passwd){
+            if (self.users[user]){
+              self.sendEvent('client',user,'system','Error','Someone kicked your ass');
+              self.sendEvent('client',user,'auth','Reauth');
+              self.deleteUser.call(self,user)
+              self.bind.call(self,callerName,user);
+              console.log(user+' kicked');
+            } else{
+              self.bind.call(self,callerName,user);
+              self.init.call(self,user,res[0].profile);
+            }
+            self.kill.call(self,callerName);
+          } else
+            self.sendEvent('client',callerName,'auth','AuthFail',
+              'Auth for user "'+user+'" failed or user is already registered.');
+        } else if(self.db) {
+          var profile=self.users[callerName].profile;
+          self.db.users.insert({user:user,passwd:passwd,profile:profile},function(err){
+            if (!err){
+              self.kill.call(self,callerName);
+              self.bind.call(self,callerName,user);
+              self.init.call(self,user,profile);
+            }
+          });
+        }
+      }});
+  } else
+    this.sendEvent('client',callerName,'system','Error','Wrong state, empty user or password, or temp name used.');
+};
+
+Server.prototype.logOff=function(user){
+  if (this.users[user].state=='online' && this.users[user].type=='registered'){
+    this.sendEvent('everyone',null,'system','Message',user+' has logged off.');
+    this.sendEvent('client',user,'auth','Reauth');
+    this.systemLogoff(user);
+    console.log(user+' has logged off.');
+  } else
+    this.sendEvent('client',user,'system','Error','You cannot do this.');
+};
+
+Server.prototype.systemLogoff=function(user){
+  this.kill(user);
+  this.deleteUser(user);
 };
 
 module.exports=Server;
