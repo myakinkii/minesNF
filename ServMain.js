@@ -8,8 +8,6 @@ var app=express();
 var db=require('mongojs').connect(dbPath,['users']);
 var Server=require('./Server.js');
 var server=new Server(db,singleThread);
-//var Auth=require('./Auth.js');
-//var auth=new Auth(server);
 
 app.configure(function(){
   app.use(express.cookieParser());
