@@ -31,10 +31,9 @@ function Server(db,st){
 Server.prototype=EventEmitter.prototype;
 
 Server.prototype.showHelp=function(user){
-//  if (this.users[user].state=='game')
-//    this.sendEvent('client',user,'chat','Help',this.gameCommands);
-//  else 
-    this.sendEvent('client',user,'chat','Help',this.chatCommands);
+  this.sendEvent('client',user,'chat','Help',this.chatCommands);
+  if (this.users[user].state=='game')
+    this.sendEvent('client',user,'chat','Help',this.gameCommands);
 };
 
 Server.prototype.init=function(user,profile){ 
@@ -70,7 +69,6 @@ Server.prototype.init=function(user,profile){
 
   if (this.users[user].partyId){
     this.sendEvent('party',this.users[user].partyId,'system','Message',user+' connected');
-//    this.emit('addToGroup',this.users[user].clientId,this.users[user].partyId);
     this.addToGroup(user,this.users[user].partyId);
   }
 
@@ -116,7 +114,6 @@ Server.prototype.disableDb=function(err){
 
 Server.prototype.updatePlayersList=function(){
   this.sendEvent('everyone',null,'chat','UpdatePlayers',this.playersList);
-//  this.sendEvent('everyone',null,'chat','UpdatePlayers',this.users);
 };
 
 Server.prototype.updatePartiesList=function(){
@@ -273,7 +270,6 @@ Server.prototype.dismissParty=function(user){
     if (this.parties[pId].leader==user){
       var p=this.parties[pId];
       for(var u in p.users){
-//        this.emit('removeFromGroup',this.users[u].clientId,pId);
         this.removeFromGroup(u,pId);
         this.changeUserState(u,'online');
         delete this.users[u].partyId;
@@ -300,7 +296,6 @@ Server.prototype.leaveParty=function(user){
         this.updatePLayersList();
         this.updatePartiesList();
         this.sendEvent('party',p.id,'system','Message',user+' left party.');
-//        this.emit('removeFromGroup',this.users[user].clientId,p.id);
         this.removeFromGroup(user,p.id);
     }
   } else    
@@ -391,7 +386,6 @@ Server.prototype.kickPlayerFromParty=function(user,userToKick){
       this.updatePlayersList();
       this.updatePartiesList();
       this.sendEvent('client',userToKick,'system','Message','You were kicked from party.');
-//      this.emit('removeFromGroup',this.users[userToKick].clientId,p.id);
       this.removeFromGroup(userToKick,p.id);
     }
   }
@@ -403,7 +397,6 @@ Server.prototype.addPlayerToParty=function(user,pId){
   p.curPlayers++;
   this.changeUserState(user,'party');
   this.users[user].partyId=pId;
-//  this.emit('addToGroup',this.users[user].clientId,pId);
   this.addToGroup(user,pId);
       this.sendEvent('client',user,'system','Message','You have joined the party.');
   if (p.maxPlayers>1){
@@ -423,7 +416,6 @@ Server.prototype.addSpectator=function(spectator,user){
         this.updatePlayersList();
         this.users[spectator].partyId=pId;
         this.execGameCommand(pId,spectator,'addSpectator');
-//        this.emit('addToGroup',this.users[spectator].clientId,pId);
         this.addToGroup(spectator,pId);
       } else
       this.sendEvent('client',user,'system','Error',user+' not in a game now');
@@ -552,7 +544,6 @@ Server.prototype.usersLeaveGame=function(users,game){
     delete this.users[u].partyId;
     this.sendEvent('client',u,'game','EndGame');
     this.sendEvent('client',u,'system','Message','You have left '+game.name);
-//    this.emit('removeFromGroup',this.users[u].clientId,game.partyId);
     this.removeFromGroup(u,game.partyId);
     console.log(u+' left '+game.name);
   }
@@ -561,8 +552,8 @@ Server.prototype.usersLeaveGame=function(users,game){
 Server.prototype.userExitGame=function(e){
   var usr={};
   usr[e.user]=1;
-  this.sendEvent('party',e.partyId,'system','Message',e.user+' left game');
   this.usersLeaveGame(usr,e);
+  this.sendEvent('party',e.partyId,'system','Message',e.user+' left game');
   this.updatePlayersList();
 };
 
@@ -623,12 +614,10 @@ Server.prototype.createTempUser=function(){
     name ='user'+this.idCounter++;
   } while (this.connections[name])
 
-  this.connections[name]={};
   return name;
 };
 
-Server.prototype.processCommandTcp=function(socket,s){
-  var sockName=socket.remoteAddress + "_" + socket.remotePort 
+Server.prototype.processCommandTcp=function(sockName,s){
   var user=this.sockNames[sockName]; 
   this.processCommand(user,s);
 };
@@ -639,41 +628,42 @@ Server.prototype.processCommandWs=function(caller,s){
 
 Server.prototype.userConnectedTcp=function(socket){
   var user=this.createTempUser();
-  this.setTcpUserProperties(user,socket);
-  this.userConnected(user);
-};
-
-Server.prototype.userDisconnectedTcp=function(socket){
-  var sockName=socket.remoteAddress + "_" + socket.remotePort 
-  var user=this.sockNames[sockName]; 
-  if (user)
-    this.userDisconnected(user);
-};
-
-Server.prototype.setTcpUserProperties=function(user,socket){
+  this.connections[user]={};
+  this.connections[user].NA=0;
   this.connections[user].type='tcp';
   this.connections[user].sock=socket;
   var sockName=socket.remoteAddress+"_"+socket.remotePort 
   this.sockNames[sockName]=user;
   this.connections[user].sockName=sockName;
+  this.userConnected(user);
+};
+
+Server.prototype.userDisconnectedTcp=function(sockName){
+  var user=this.sockNames[sockName]; 
+  if (user)
+    this.userDisconnected(user);
 };
 
 Server.prototype.userConnectedWs=function(caller){
   if (this.connectSids[caller.cookie['connect.sid']])
     var user=this.connectSids[caller.cookie['connect.sid']];
-  else 
+  else {
     var user=this.createTempUser();
-  
-  this.setWsUserProperties(user,caller);
-  this.sendEvent('client',user,'auth','InitClient');
-  this.userConnected(user);
-};
-
-Server.prototype.setWsUserProperties=function(user,caller){
+    this.connections[user]={};
+  }
+  this.connections[user].NA=0;
   this.connections[user].type='ws';
   this.connections[user].clientId=caller.clientId;
   this.connectSids[caller.cookie['connect.sid']]=user;
   this.connections[user].connectSid=caller.cookie['connect.sid'];
+  this.sendEvent('client',user,'auth','InitClient');
+  this.userConnected(user);
+};
+
+Server.prototype.userDisconnectedWs=function(caller){
+  var user=this.connectSids[caller.cookie['connect.sid']];
+  if (user)
+    this.userDisconnected(user);
 };
 
 Server.prototype.bind=function(user,newUser){
@@ -690,28 +680,21 @@ Server.prototype.bind=function(user,newUser){
   delete this.connections[user];
 };
 
-Server.prototype.deleteUser=function(user){
-  var u=this.connections[user];
-  if (u.type=='ws')
-    delete this.connectSids[u.connectSid];
+Server.prototype.deleteConnection=function(user){
+  var c=this.connections[user];
+  if (c.type=='ws')
+    delete this.connectSids[c.connectSid];
   else
-    delete this.sockNames[u.sockName];
+    delete this.sockNames[c.sockName];
   delete this.connections[user];
 };
 
 Server.prototype.userConnected=function(user){
-  this.connections[user].NA=0;
   if (this.killTimers[user]){
     clearTimeout(this.killTimers[user]);
     delete this.killTimers[user];
   }
   this.init(user);  
-};
-
-Server.prototype.userDisconnectedWs=function(caller){
-  var user=this.connectSids[caller.cookie['connect.sid']];
-  if (user)
-    this.userDisconnected(user);
 };
 
 Server.prototype.userDisconnected=function(user){
@@ -727,7 +710,8 @@ Server.prototype.killPlayerByTimeout=function(user){
   if (this.connections[user]){
     if (this.users[user].partyId)
      this.sendEvent('party',this.users[user].partyId,'system','Message',user+' killed by timeout');
-    this.systemLogoff(user)
+    this.kill(user);
+    this.deleteConnection(user);
     console.log(user+' klled by timeout');
   }
 };
@@ -745,7 +729,7 @@ Server.prototype.logIn=function(callerName,user,passwd){
             if (self.users[user]){
               self.sendEvent('client',user,'system','Error','Someone kicked your ass');
               self.sendEvent('client',user,'auth','Reauth');
-              self.deleteUser.call(self,user)
+              self.deleteConnection.call(self,user)
               self.bind.call(self,callerName,user);
               console.log(user+' kicked');
             } else{
@@ -775,15 +759,11 @@ Server.prototype.logOff=function(user){
   if (this.users[user].state=='online' && this.users[user].type=='registered'){
     this.sendEvent('everyone',null,'system','Message',user+' has logged off.');
     this.sendEvent('client',user,'auth','Reauth');
-    this.systemLogoff(user);
+    this.kill(user);
+    this.deleteConnection(user);
     console.log(user+' has logged off.');
   } else
     this.sendEvent('client',user,'system','Error','You cannot do this.');
-};
-
-Server.prototype.systemLogoff=function(user){
-  this.kill(user);
-  this.deleteUser(user);
 };
 
 module.exports=Server;

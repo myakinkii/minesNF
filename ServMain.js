@@ -25,8 +25,9 @@ everyone.now.processCommand = function(s){server.processCommandWs(this.user,s);}
 
 var tcpServ = net.createServer(function (socket) {
   server.userConnectedTcp(socket);
-  socket.on('data',function (data){server.processCommandTcp(socket,data.toString('utf8'));});
-  socket.on('end',function (){server.userDisconnectedTcp(socket)});
+  var sockName=socket.remoteAddress + "_" + socket.remotePort;
+  socket.on('data',function (data){server.processCommandTcp(sockName,data.toString('utf8'));});
+  socket.on('end',function (){server.userDisconnectedTcp(sockName)});
 });
 tcpServ.listen(8081);
 
@@ -47,29 +48,30 @@ server.on('event',function(e){
     sendEvent(e.usr,e);
 
   if (e.dst=='party')
-    for (var i in server.groups[e.partyId].users)
-      sendEvent(i,e);
+    for (var name in server.groups[e.partyId].users)
+      sendEvent(name,e);
 
   if (e.dst=='everyone'){
     if (everyone.now.dispatchEvent) // there are only tcp clients
       everyone.now.dispatchEvent(e);
-    for (var c in server.connections)
-      if(server.connections[c].type=='tcp')
-      server.connections[c].sock.write(JSON.stringify(e)+"\n");
+    for (var name in server.connections)
+      if(server.connections[name].type=='tcp')
+        sendEvent(name,e);
   }
 
-  function sendEvent(user,e){
-    var user=server.connections[user];
-    if (user.type=='tcp')
-      user.sock.write(JSON.stringify(e)+"\n");
-    else {
-      nowjs.getClient(user.clientId,function(){
-        if(this.now){
-          this.now.dispatchEvent(e);
-        } else
-        server.userNA(e);
-      });
-    }
+  function sendEvent(userName,e){
+    var con=server.connections[userName];
+    if (con)
+    if(!con.NA )
+      if (con.type=='tcp')
+        con.sock.write(JSON.stringify(e)+"\n");
+      else
+        nowjs.getClient(con.clientId,function(){
+          if(this.now)
+            this.now.dispatchEvent(e);
+        });
+    else if (e.dst=='client')
+      server.userNA(e);
   };
 
 });
