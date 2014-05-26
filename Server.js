@@ -1,5 +1,6 @@
 var fork=require('child_process').fork;
 var EventEmitter=require('events').EventEmitter;
+var crypto=require('crypto');
 
 function Server(db,st){
   this.singleThread=st;
@@ -19,6 +20,7 @@ function Server(db,st){
   this.connectSids={};
   this.sockNames={};
   this.iamHashes={};
+  this.salt=crypto.randomBytes(16).toString('base64');
   this.killTimers={};
 
   this.modes=require('./Modes.js').modes;
@@ -626,7 +628,7 @@ Server.prototype.userConnectedTcp=function(socket){
   var sockName=socket.remoteAddress+"_"+socket.remotePort 
   this.sockNames[sockName]=user;
   this.connections[user].sockName=sockName;
-  var hash=require('crypto').createHash('md5').update(sockName).digest("hex");
+  var hash=crypto.createHash('md5').update(sockName+this.salt).digest("hex");
   this.iamHashes[hash]=user;
   this.connections[user].iamHash=hash;
   this.sendEvent('client',user,'auth','IamHash',hash);
