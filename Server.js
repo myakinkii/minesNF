@@ -16,9 +16,9 @@ function Server(db,st){
   this.maxCount=10;
   this.connections={};
   this.groups={};
-  this.sockets={}
   this.connectSids={};
   this.sockNames={};
+  this.iamHashes={};
   this.killTimers={};
 
   this.modes=require('./Modes.js').modes;
@@ -617,15 +617,6 @@ Server.prototype.createTempUser=function(){
   return name;
 };
 
-Server.prototype.processCommandTcp=function(sockName,s){
-  var user=this.sockNames[sockName]; 
-  this.processCommand(user,s);
-};
-
-Server.prototype.processCommandWs=function(caller,s){
-  this.processCommand(this.connectSids[caller.cookie['connect.sid']],s);
-};
-
 Server.prototype.userConnectedTcp=function(socket){
   var user=this.createTempUser();
   this.connections[user]={};
@@ -635,6 +626,10 @@ Server.prototype.userConnectedTcp=function(socket){
   var sockName=socket.remoteAddress+"_"+socket.remotePort 
   this.sockNames[sockName]=user;
   this.connections[user].sockName=sockName;
+  var hash=require('crypto').createHash('md5').update(sockName).digest("hex");
+  this.iamHashes[hash]=user;
+  this.connections[user].iamHash=hash;
+  this.sendEvent('client',user,'auth','IamHash',hash);
   this.userConnected(user);
 };
 
@@ -642,6 +637,34 @@ Server.prototype.userDisconnectedTcp=function(sockName){
   var user=this.sockNames[sockName]; 
   if (user)
     this.userDisconnected(user);
+};
+
+Server.prototype.processCommandTcp=function(socket,s){
+  var sockName=socket.remoteAddress + "_" + socket.remotePort;
+  var pars=s.split(' ');
+  var command=pars[0];
+  var iam=pars[1];
+  if (command == '/iam'){
+    if (!iam && !this.sockNames[sockName]) 
+      this.userConnectedTcp(socket)
+    else if (this.iamHashes[iam]){
+      var user=this.iamHashes[iam];
+      var oldSockName=this.connections[user].sockName;
+      this.connections[user].sockName=sockName;
+      this.connections[user].sock=socket;
+      this.connections[user].NA=0;
+      this.sockNames[sockName]=user;
+      delete this.sockNames[oldSockName];
+      this.userConnected(user);
+    }
+  } else {
+  var user=this.sockNames[sockName]; 
+  this.processCommand(user,s);
+  }
+};
+
+Server.prototype.processCommandWs=function(caller,s){
+  this.processCommand(this.connectSids[caller.cookie['connect.sid']],s);
 };
 
 Server.prototype.userConnectedWs=function(caller){
@@ -684,8 +707,10 @@ Server.prototype.deleteConnection=function(user){
   var c=this.connections[user];
   if (c.type=='ws')
     delete this.connectSids[c.connectSid];
-  else
+  else {
     delete this.sockNames[c.sockName];
+    delete this.iamHashes[c.iamHash];
+  }
   delete this.connections[user];
 };
 
