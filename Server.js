@@ -9,7 +9,7 @@ function Server(db,st){
   this.playersList={}; // to send to clients
   this.NaMessages={};
   this.partyCounter=0;
-  this.maxPartyId=2;
+  this.maxPartyId=10;
   this.parties={};
   this.games={};
 
@@ -107,10 +107,10 @@ Server.prototype.kill=function(user){
   }
 };
 
-Server.prototype.disableDb=function(err){
+Server.prototype.disableDb=function(err,user){
   delete this.db;
   console.log(err.toString());
-  self.sendEvent('client',user,'system','Error',
+  this.sendEvent('client',user,'system','Error',
                  'Seems we have some problems with DB. Sry.');
 };
 
@@ -139,9 +139,7 @@ Server.prototype.sendPrivateMessage=function(user,userTo){
 };
 
 Server.prototype.processCommand=function(user,s){
-
-  console.log(s);
-
+//console.log(s);
   var pars=s.split(' ');
   var command=pars[0];
   var isCommand=0;
@@ -328,7 +326,7 @@ Server.prototype.playerInfo=function(user,infoUsr){
           self.sendEvent('client',user,'system','Error',
                          'No such registered user.');
       } else {
-        self.disableDb(err);
+        self.disableDb(err,user);
       }
     });
   }
@@ -353,7 +351,7 @@ Server.prototype.topPlayers=function(user){
     if (this.db)
       this.db.users.find(where[i],fields[i]).limit(10).sort(sort[i],function(err,res){
         if (err)
-          self.disableDb(err);
+          self.disableDb(err,user);
         else if (res[0])
           self.sendEvent('client',user,'chat','Top',res);
     });
@@ -643,25 +641,28 @@ Server.prototype.userDisconnectedTcp=function(sockName){
 
 Server.prototype.processCommandTcp=function(socket,s){
   var sockName=socket.remoteAddress + "_" + socket.remotePort;
-  var pars=s.split(' ');
-  var command=pars[0];
-  var iam=pars[1];
-  if (command == '/iam'){
-    if (!iam && !this.sockNames[sockName]) 
-      this.userConnectedTcp(socket)
-    else if (this.iamHashes[iam]){
-      var user=this.iamHashes[iam];
-      var oldSockName=this.connections[user].sockName;
-      this.connections[user].sockName=sockName;
-      this.connections[user].sock=socket;
-      this.connections[user].NA=0;
-      this.sockNames[sockName]=user;
-      delete this.sockNames[oldSockName];
-      this.userConnected(user);
+  var cmds=s.split('\n'); //cuz we can get multiline data from socket
+  for (var c in cmds){
+    var pars=cmds[c].split(' ');
+    var command=pars[0];
+    var iam=pars[1];
+    if (command == '/iam'){
+      if (!iam && !this.sockNames[sockName]) 
+	this.userConnectedTcp(socket)
+      else if (this.iamHashes[iam]){
+	var user=this.iamHashes[iam];
+	var oldSockName=this.connections[user].sockName;
+	this.connections[user].sockName=sockName;
+	this.connections[user].sock=socket;
+	this.connections[user].NA=0;
+	this.sockNames[sockName]=user;
+	delete this.sockNames[oldSockName];
+	this.userConnected(user);
+      }
+    } else if (command && this.sockNames[sockName]){
+      var user=this.sockNames[sockName]; 
+      this.processCommand(user,cmds[c]);
     }
-  } else {
-  var user=this.sockNames[sockName]; 
-  this.processCommand(user,s);
   }
 };
 
@@ -749,7 +750,7 @@ Server.prototype.logIn=function(callerName,user,passwd){
     var self=this;
     this.db.users.find({user:user},{user:1,passwd:1,profile:1},function(err,res){
       if (err)
-        self.disableDb(err);
+        self.disableDb(err,user);
       else {
         if(res[0]){
           if (res[0].passwd==passwd){

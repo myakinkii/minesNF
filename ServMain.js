@@ -43,6 +43,7 @@ server.on('removeFromGroup',function(uName,groupId){
 });
 
 server.on('event',function(e){
+  //console.log(e);
 
   if (e.dst=='client')
     sendEvent(e.usr,e);
@@ -64,7 +65,9 @@ server.on('event',function(e){
     if (con)
     if(!con.NA )
       if (con.type=='tcp'){
-        con.sock.write(JSON.stringify(e)+"\n");
+        var data=JSON.stringify(e);
+        con.sock.write(data+"\n");
+       // if (data.length>1023) console.log('  '+e.func+' '+(data.length+1));
       } else
         nowjs.getClient(con.clientId,function(){
           if(this.now)
