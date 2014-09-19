@@ -434,7 +434,6 @@ Server.prototype.createGame=function(args){
   for (var u in args.users){
     args.profiles[u]=this.users[u].profile[args.mode];
     this.changeUserState(u,'game');
-    this.sendEvent('client',u,'system','Message',args.name+' started.');
     console.log(u+' has joined the game '+ args.name);
   }
 
@@ -449,7 +448,9 @@ Server.prototype.createGame=function(args){
   this.execGameCommand(args.id,null,'startBoard');
   this.updatePlayersList();
   this.updatePartiesList();
-  console.log('Game '+args.name+' created');
+  this.sendEvent('party',args.id,'system','Message',args.name+' started.');
+  this.sendEvent('party',args.id,'game','GameStarted',args.board); //for ios to segue
+  console.log('Game '+args.name+' started');
 };
 
 Server.prototype.execGameCommand=function(pId,user,command){
