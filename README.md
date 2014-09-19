@@ -1,7 +1,12 @@
 ### http://minesnf.com - cooperative non-flagging minesweeper
+okay, now with ios support.
+ios project soon to be uploaded to github
 
 ##TODO
-* ?
+* refactor tcp code
+
+## v0.2
+* added tcp for ios client
 
 ## v0.1.2
 * small fixes 
