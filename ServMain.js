@@ -17,7 +17,7 @@ app.configure(function(){
 
 var httpServ=http.createServer(app);
 var everyone=nowjs.initialize(httpServ,{socketio:{transports:['websocket']}});
-httpServ.listen(8080);
+httpServ.listen(80);
 
 everyone.connected(function(){server.userConnectedWs(this.user)});
 everyone.disconnected(function(){server.userDisconnectedWs(this.user)});
@@ -28,6 +28,7 @@ var tcpServ = net.createServer(function (socket) {
   var sockName=socket.remoteAddress + "_" + socket.remotePort;
   socket.on('data',function (data){server.processCommandTcp(socket,data.toString('utf8'));});
   socket.on('end',function (){server.userDisconnectedTcp(sockName)});
+  socket.on('error',function (err){server.userDisconnectedTcp(sockName)});
 });
 tcpServ.listen(8081);
 
@@ -66,8 +67,11 @@ server.on('event',function(e){
     if(!con.NA )
       if (con.type=='tcp'){
         var data=JSON.stringify(e);
-        con.sock.write(data+"\n");
-       // if (data.length>1023) console.log('  '+e.func+' '+(data.length+1));
+	try {
+	  con.sock.write(data+"\n");
+	} catch (e) {
+	  console.log(e);
+	}
       } else
         nowjs.getClient(con.clientId,function(){
           if(this.now)
