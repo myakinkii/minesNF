@@ -449,7 +449,6 @@ Server.prototype.createGame=function(args){
   this.updatePlayersList();
   this.updatePartiesList();
   this.sendEvent('party',args.id,'system','Message',args.name+' started.');
-  this.sendEvent('party',args.id,'game','GameStarted',args.board); //for ios to segue
   console.log('Game '+args.name+' started');
 };
 
@@ -646,11 +645,9 @@ Server.prototype.processCommandTcp=function(socket,s){
   for (var c in cmds){
     var pars=cmds[c].split(' ');
     var command=pars[0];
-    var iam=pars[1];
+    var iam=pars[1]||"";
     if (command == '/iam'){
-      if (!iam && !this.sockNames[sockName]) 
-	this.userConnectedTcp(socket)
-      else if (this.iamHashes[iam]){
+      if (this.iamHashes[iam]){
 	var user=this.iamHashes[iam];
 	var oldSockName=this.connections[user].sockName;
 	this.connections[user].sockName=sockName;
@@ -659,7 +656,8 @@ Server.prototype.processCommandTcp=function(socket,s){
 	this.sockNames[sockName]=user;
 	delete this.sockNames[oldSockName];
 	this.userConnected(user);
-      }
+      } else
+	this.userConnectedTcp(socket)
     } else if (command && this.sockNames[sockName]){
       var user=this.sockNames[sockName]; 
       this.processCommand(user,cmds[c]);
