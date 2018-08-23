@@ -5,9 +5,14 @@ var nowjs=require('now');
 var http=require('http');
 var net=require('net');
 var app=express();
-var db=require('mongojs').connect(dbPath,['users']);
+//var db=require('mongojs').connect(dbPath,['users']);
+var mongojs = require('mongojs')
+var db=mongojs(dbPath,['users']);
 var Server=require('./Server.js');
 var server=new Server(db,singleThread);
+
+var util = require('util');
+var DEBUG=process.argv[2]?true:false;
 
 app.configure(function(){
   app.use(express.cookieParser());
@@ -17,16 +22,21 @@ app.configure(function(){
 
 var httpServ=http.createServer(app);
 var everyone=nowjs.initialize(httpServ,{socketio:{transports:['websocket']}});
-httpServ.listen(80);
+httpServ.listen(8080);
 
 everyone.connected(function(){server.userConnectedWs(this.user)});
 everyone.disconnected(function(){server.userDisconnectedWs(this.user)});
-everyone.now.processCommand = function(s){server.processCommandWs(this.user,s);};
+everyone.now.processCommand = function(s){
+  if(DEBUG) console.log("\nDBG_WS_REQUEST >>",s);
+  server.processCommandWs(this.user,s);
+};
 
 var tcpServ = net.createServer(function (socket) {
 //  server.userConnectedTcp(socket);
   var sockName=socket.remoteAddress + "_" + socket.remotePort;
-  socket.on('data',function (data){server.processCommandTcp(socket,data.toString('utf8'));});
+  socket.on('data',function (data){
+    if(DEBUG) console.log("\nDBG_TCP_REQUEST >>",data.toString('utf8'));
+    server.processCommandTcp(socket,data.toString('utf8'));});
   socket.on('end',function (){server.userDisconnectedTcp(sockName)});
   socket.on('error',function (err){server.userDisconnectedTcp(sockName)});
 });
@@ -44,7 +54,9 @@ server.on('removeFromGroup',function(uName,groupId){
 });
 
 server.on('event',function(e){
-  //console.log(e);
+
+  if(DEBUG) console.log("\nDBG_EVENT_RESPONSE >>");
+  if(DEBUG) console.log(util.inspect(e,{colors:true}),"\n");
 
   if (e.dst=='client')
     sendEvent(e.usr,e);

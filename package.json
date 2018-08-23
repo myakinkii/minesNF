@@ -13,8 +13,9 @@
   },
   "dependencies": {
     "express": "3.0.x",
-    "node-proxy": "0.6.x",
-    "now": "0.8.x",
-    "mongojs": "0.4.6"
+    "socket.io": "0.9.x",
+    "now": "0.8.1",
+    "mongojs": "^2.6.0",
+    "node-proxy": "^1.0.0"
   }
 }
