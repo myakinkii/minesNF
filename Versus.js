@@ -8,20 +8,21 @@ function VersusGame(pars){
 
 VersusGame.prototype=new Game;
 
-VersusGame.prototype.resetGame=function(re){
-  this.openCells(this.board.mines);
+VersusGame.prototype.onResetBoard=function(re){
+  //this.openCells(this.board.mines);
   this.totalTime+=this.now;
   var stat=this.getGenericStat();
   stat.winner=re.user;
   stat.totalTime=this.totalTime/1000,
   stat.score=this.score,
   this.emitEvent('server',null,null,'versusGameResult',stat);
-  this.resetScore();
-  this.resetBoard(re);
+  //this.resetScore();
+  //this.resetBoard(re);
   this.totalTime=0;
 };
 
 VersusGame.prototype.onStartBoard=function(){
+  this.resetScore();
   var openX=Math.round(this.board.sizeX/2);
   var openY=Math.round(this.board.sizeY/2);
   this.checkCell({pars:[openX,openY],user:'system'});
@@ -31,9 +32,9 @@ VersusGame.prototype.onCells=function(re){
   this.openCells(re.cells);
   if (re.user!='system')
     this.addPoints(re);
-  if (this.score[re.user]>=this.board.bombs*10){
-    this.resetGame(re);
-  }
+  //if (this.score[re.user]>=this.board.bombs*10){
+  //  this.resetGame(re);
+  //}
 };
 
 VersusGame.prototype.onBomb=function(re){
@@ -43,7 +44,7 @@ VersusGame.prototype.onBomb=function(re){
 };
 
 VersusGame.prototype.onComplete=function(re){
-  this.totalTime+=this.now;
+  //this.totalTime+=this.now;
   this.addPoints(re);
   this.openCells(re.cells);
   this.openCells(this.board.mines);
