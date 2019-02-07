@@ -40,7 +40,7 @@ var tcpServ = net.createServer(function (socket) {
   socket.on('end',function (){server.userDisconnectedTcp(sockName)});
   socket.on('error',function (err){server.userDisconnectedTcp(sockName)});
 });
-tcpServ.listen(8081);
+//tcpServ.listen(8081);
 
 console.log('\nserver started in',singleThread?'single':'muliti','thread mode');
 console.log('path to DB is: '+dbPath+'\n');
