@@ -12,6 +12,7 @@
     "node": "0.8.x"
   },
   "dependencies": {
+    "debug": "3.1.x",
     "express": "3.0.x",
     "socket.io": "0.9.x",
     "now": "0.8.1",
