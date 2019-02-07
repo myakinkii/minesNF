@@ -9,12 +9,12 @@ function Server(db,st){
   this.playersList={}; // to send to clients
   this.NaMessages={};
   this.partyCounter=0;
-  this.maxPartyId=10;
+  this.maxPartyId=100;
   this.parties={};
   this.games={};
 
   this.idCounter=0;
-  this.maxCount=10;
+  this.maxCount=100;
   this.connections={};
   this.groups={};
   this.connectSids={};
