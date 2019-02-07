@@ -1,3 +1,4 @@
+var PORT=process.env.HTTPPORT||8080;
 var dbPath=process.env.NODE_DBPATH||'mines';
 var singleThread=process.env.NODE_SINGLETHREAD||0;
 var express=require("express");
@@ -22,7 +23,7 @@ app.configure(function(){
 
 var httpServ=http.createServer(app);
 var everyone=nowjs.initialize(httpServ,{socketio:{transports:['websocket']}});
-httpServ.listen(8080);
+httpServ.listen(PORT);
 
 everyone.connected(function(){server.userConnectedWs(this.user)});
 everyone.disconnected(function(){server.userDisconnectedWs(this.user)});
@@ -42,7 +43,7 @@ var tcpServ = net.createServer(function (socket) {
 });
 //tcpServ.listen(8081);
 
-console.log('\nserver started in',singleThread?'single':'muliti','thread mode');
+console.log('\nserver started on port '+PORT+' in',singleThread?'single':'muliti','thread mode');
 console.log('path to DB is: '+dbPath+'\n');
 
 server.on('addToGroup',function(uName,groupId){
