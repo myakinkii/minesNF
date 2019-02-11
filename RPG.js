@@ -2,7 +2,7 @@ var Game=require('./Game.js');
 
 function RPGGame(pars) {
 	Game.call(this, pars);
-	for (var u in this.players) if(this.profiles[u]) this.profiles[u]={};
+	for (var u in this.players) if(!this.profiles[u]) this.profiles[u]={};
 };
 
 RPGGame.prototype = new Game;
@@ -46,13 +46,13 @@ RPGGame.prototype.calcAtk = function (atkProfile,defProfile) {
 	return re;
 };
 
-RPGGame.prototype.hitMob = function (user) {
+RPGGame.prototype.hitMob = function (e) {
 	
 	if (!this.inBattle) return;
-	var userProfile=this.profiles[user],bossProfile=this.profiles.boss;
+	var userProfile=this.profiles[e.user],bossProfile=this.profiles.boss;
 
 	if (userProfile.livesLost==8 || userProfile.hp==0) {
-		this.emitEvent('client', user, 'system', 'Message','You are dead now, and cannot do that');
+		this.emitEvent('client', e.user, 'system', 'Message','You are dead now, and cannot do that');
 		return;
 	}
 

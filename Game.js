@@ -35,7 +35,7 @@ Game.prototype.emitEvent=function(dst,dstId,contextId,func,arg){
 
 Game.prototype.dispatchEvent=function(e){
   if (e.command == 'hitMob' && this.players[e.user])
-    this.hitMob(e.user);
+    this.hitMob(e);
   if (e.command=='checkCell' && this.players[e.user])
     this.checkCell(e);
   if (e.command=='startBoard')
