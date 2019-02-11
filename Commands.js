@@ -1,4 +1,5 @@
   module.exports.game={
+    '/hit':{f:'hitMob',d:' - hit mob'},
     '/check':{f:'checkCell',d:' - check cell <x> <y>'},
     '/quit':{f:'quitGame',d:' - quit current game'}
   };
