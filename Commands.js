@@ -1,6 +1,10 @@
   module.exports.game={
-    '/equip':{f:'equipGear',d:' <[gem1, gem2, ... ]> - equip gems while not in battle'},
+    '/descend':{f:'descendToNextFloor',d:' - descend to fight for more loot'},
+    '/ascend':{f:'ascendToFloor1',d:' - ascend to collect the loot'},
+    '/flee':{f:'fleeBattle',d:' - flee the fight'},
+    '/steal':{f:'stealLoot',d:' - try to steal the loot'},
     '/hit':{f:'hitMob',d:' - hit mob'},
+    '/equip':{f:'equipGear',d:' <[gem1, gem2, ... ]> - equip gems while not in battle'},
     '/check':{f:'checkCell',d:' - check cell <x> <y>'},
     '/quit':{f:'quitGame',d:' - quit current game'}
   };
