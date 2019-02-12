@@ -1,4 +1,5 @@
   module.exports.game={
+    '/equip':{f:'equipGear',d:' <[gem1, gem2, ... ]> - equip gems while not in battle'},
     '/hit':{f:'hitMob',d:' - hit mob'},
     '/check':{f:'checkCell',d:' - check cell <x> <y>'},
     '/quit':{f:'quitGame',d:' - quit current game'}

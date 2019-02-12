@@ -34,8 +34,10 @@ Game.prototype.emitEvent=function(dst,dstId,contextId,func,arg){
 };
 
 Game.prototype.dispatchEvent=function(e){
-  if (e.command == 'hitMob' && this.players[e.user])
-    this.hitMob(e);
+  
+  var rpgCommands=['hitMob','equipGear','fleeBattle','ascendToFloor1','descendToNextFloor'];
+  if (rpgCommands.indexOf(e.command)>-1 && this[e.command] && this.players[e.user]) this[e.command](e);
+
   if (e.command=='checkCell' && this.players[e.user])
     this.checkCell(e);
   if (e.command=='startBoard')
@@ -58,7 +60,7 @@ Game.prototype.addSpec=function(user){
 
 Game.prototype.initGUI=function(user){
   this.emitEvent('client',user,'game','StartGame',
-                 {boardId:this.name,r:this.board.sizeY,c:this.board.sizeX});
+                 {mode:this.mode,boardId:this.name,r:this.board.sizeY,c:this.board.sizeX});
   this.emitEvent('client',user,'game','OpenLog',this.log);
 };
 
@@ -67,7 +69,7 @@ Game.prototype.startBoard=function(){
   this.logStart=0;
   this.log={};
   this.emitEvent('party',this.id,'game','StartGame',
-                 {boardId:this.name,r:this.board.sizeY,c:this.board.sizeX});
+                 {mode:this.mode,boardId:this.name,r:this.board.sizeY,c:this.board.sizeX});
   if (this.onStartBoard)
     this.onStartBoard();
 };

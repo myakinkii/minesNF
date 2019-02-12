@@ -46,6 +46,17 @@ RPGGame.prototype.calcAtk = function (atkProfile,defProfile) {
 	return re;
 };
 
+RPGGame.prototype.equipGear = function (e) {
+	if (e.pars.length==0 || e.pars.length>8 ) return;
+	var userProfile=this.profiles[e.user];
+	if (this.inBattle || userProfile.livesLost==8)  {
+		this.emitEvent('client', e.user, 'system', 'Message','You are in either dead, or in battle now! No time for that stuff');
+		return;
+	}
+	userProfile.equip=e.pars;
+	this.emitEvent('client', e.user, 'system', 'Message','Equipped '+userProfile.equip);
+};
+
 RPGGame.prototype.hitMob = function (e) {
 	
 	if (!this.inBattle) return;
@@ -162,23 +173,24 @@ RPGGame.prototype.onBomb = function (re) {
 RPGGame.prototype.adjustProfile=function(equip,template){
 	template.equip=equip;
 	var power={"common":1,"rare":2,"epic":3};
+	var effects={"maxhp":1,"patk":1,"pdef":1,"speed":1};
 	return equip.reduce(function(prev,cur){
-		prev[cur.effect]+=power[cur.rarity];
+		var gem=cur.split("_");
+		if (effects[gem[1]] && power[gem[0]] )prev[gem[1]]+=power[gem[0]];
 		return prev;
 	},template);
 };
 
 RPGGame.prototype.genBossEquip=function(bossLevel,bSize,stat){
-	var equip=[];
+	var equip=[],effect,rarity;
 	var rnd=["maxhp","patk","pdef","speed"];
 	var rarities={small:['common','common'],medium:['rare','common'],big:['epic','rare']};
 	var times={"s":10,"m":40,"b":120};
 	while (bossLevel>0) {
 		bossLevel--; 
-		equip.push({
-			effect:rnd[Math.floor(Math.random()*4)],
-			rarity: (Math.random()<0.5*times[bSize]/stat.time)?rarities[bSize][0]:rarities[bSize][1]
-		});
+		effect=rnd[Math.floor(Math.random()*4)];
+		rarity=(Math.random()<0.5*times[bSize]/stat.time)?rarities[bSize][0]:rarities[bSize][1];
+		equip.push(rarity+"_"+effect);
 	}
 	return equip;
 };
