@@ -35,7 +35,7 @@ Game.prototype.emitEvent=function(dst,dstId,contextId,func,arg){
 
 Game.prototype.dispatchEvent=function(e){
   
-  var rpgCommands=['hitMob','equipGear','fleeBattle','ascendToFloor1','descendToNextFloor'];
+  var rpgCommands=['hitMob','stealLoot','equipGear','fleeBattle','ascendToFloor1','descendToNextFloor'];
   if (rpgCommands.indexOf(e.command)>-1 && this[e.command] && this.players[e.user]) this[e.command](e);
 
   if (e.command=='checkCell' && this.players[e.user])
