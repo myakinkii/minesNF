@@ -180,7 +180,7 @@ RPGGame.prototype.descendToNextFloor = function (e) {
 	// for (var p in this.players) if(!this.voteDescend[p]) voteDescendAccepted=false;
 	if (voteDescendAccepted) {
 		this.floor++;
-		this.resetBoard({floor:this.floor,eventKey:'completeFloorDescend',user:e.user});
+		this.resetBoard({result:"continue",floor:this.floor,eventKey:'completeFloorDescend',user:e.user});
 	}
 };
 
