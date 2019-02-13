@@ -1,5 +1,5 @@
 var Game=require('./Game.js');
-
+	
 function RPGGame(pars) {
 	Game.call(this, pars);
 	for (var u in this.players) if(!this.profiles[u]) this.profiles[u]={};
@@ -269,26 +269,18 @@ RPGGame.prototype.onBomb = function (re) {
 	}
 };
 
-RPGGame.prototype.adjustProfile=function(equip,template){
-	template.equip=equip;
-	var power={"common":1,"rare":2,"epic":3};
-	return equip.reduce(function(prev,cur){
-		prev[cur.effect]+=power[cur.rarity];
-		return prev;
-	},template);
-};
-
-RPGGame.prototype.genBossEquip=function(bossLevel,bSize,stat){
+RPGGame.prototype.genBossEquip=function(floor,bossLevel,bSize,stat){
 	var equip=[];
-	var rnd=["maxhp","patk","pdef","speed"];
-	var rarities={small:['common','common'],medium:['rare','common'],big:['epic','rare']};
-	var times={"s":10,"m":40,"b":120};
-	while (bossLevel>0) {
-		bossLevel--; 
-		equip.push({
-			effect:rnd[Math.floor(Math.random()*4)],
-			rarity: (Math.random()<0.5*times[bSize]/stat.time)?rarities[bSize][0]:rarities[bSize][1]
-		});
+	var effects=["maxhp","patk","pdef","speed"];
+	var times={"small":10,"medium":40,"big":120};
+	var bossLevelRatio={ 1:0.8, 2:0.9, 3:1, 4:1.1, 5:1.2, 6:1.3, 7:1.5, 8:2};
+	var timeRatio=(times[bSize]-stat.time)/times.big;
+	if (timeRatio<0) timeRatio=0;
+	var gemCount=Math.floor(floor*bossLevelRatio[bossLevel]*(1-timeRatio) );
+	gemCount=floor;
+	while (gemCount>0) {
+		equip.push( "common_"+effects[Math.floor(Math.random()*4)] );
+		gemCount--;
 	}
 	return equip;
 };
@@ -302,20 +294,6 @@ RPGGame.prototype.adjustProfile=function(equip,template){
 		if (effects[gem[1]] && power[gem[0]] )prev[gem[1]]+=power[gem[0]];
 		return prev;
 	},template);
-};
-
-RPGGame.prototype.genBossEquip=function(bossLevel,bSize,stat){
-	var equip=[],effect,rarity;
-	var rnd=["maxhp","patk","pdef","speed"];
-	var rarities={small:['common','common'],medium:['rare','common'],big:['epic','rare']};
-	var times={"s":10,"m":40,"b":120};
-	while (bossLevel>0) {
-		bossLevel--; 
-		effect=rnd[Math.floor(Math.random()*4)];
-		rarity=(Math.random()<0.5*times[bSize]/stat.time)?rarities[bSize][0]:rarities[bSize][1];
-		equip.push(rarity+"_"+effect);
-	}
-	return equip;
 };
 
 RPGGame.prototype.startBattle = function () {
@@ -339,7 +317,7 @@ RPGGame.prototype.startBattle = function () {
 	for (var p in this.profiles) if (!this.players[p]) delete this.profiles[p];
 	
 	var bossProfile=this.adjustProfile(
-		this.genBossEquip(this.bossLevel,this.bSize,stat),
+		this.genBossEquip(this.floor,this.bossLevel,this.bSize,stat),
 		{"maxhp":0,"patk":0,"pdef":0,"speed":0,"level":this.bossLevel,"mob":1}
 	);
 
@@ -363,66 +341,6 @@ RPGGame.prototype.onComplete = function (re) {
 	this.openCells(re.cells);
 	this.openCells(this.board.mines);
 	if (!this.inBattle) this.startBattle();
-};
-
-function RankGame(pars){
-	Game.call(this,pars);
-	this.bestTime=this.profiles[this.partyLeader][this.bSize];
-	this.gamesPlayed=0;
-	this.won=0;
-	this.lost=0;
-	this.winStreak=0;
-	this.loseStreak=0;
-};
-
-  RankGame.prototype=new Game;
-
-RankGame.prototype.onStartBoard=function(){
-	this.resetScore();
-};
-
-RankGame.prototype.onResetBoard=function(e){
-	this.gamesPlayed++;
-	if (e.win){
-	this.winStreak++;
-	this.loseStreak=0;
-	this.won++;
-	} else{
-	this.winStreak=0;
-	this.loseStreak++;
-	this.lost++;
-	}
-	var stat=this.getGenericStat();
-	stat.bestTime=this.bestTime;
-	stat.result=e.win?'win':'fail',
-	stat.gamesPlayed=this.gamesPlayed,
-	stat.won=this.won,
-	stat.lost=this.lost,
-	stat.winPercentage=Math.round(100*this.won/this.gamesPlayed)+'%',
-	stat.streak=this.winStreak?this.winStreak:this.loseStreak;
-	this.emitEvent('party',this.id,'game','ShowResultRank',stat);
-};
-
-RankGame.prototype.onCells=function(re){
-	this.openCells(re.cells);
-};
-
-RankGame.prototype.onBomb=function(re){
-	this.openCells(this.board.mines);
-	this.resetBoard(re);
-};
-
-RankGame.prototype.onComplete=function(re){
-	this.openCells(re.cells);
-	this.openCells(this.board.mines);
-	re.win=1;
-	var time=this.now/1000;
-	if (!this.bestTime || time<this.bestTime){
-	this.bestTime=time;
-	this.emitEvent('server',null,null,'userNewBestTime',
-					{game:this.name,user:re.user,bSize:this.bSize,time:time,log:this.log});
-	}
-	this.resetBoard(re);
 };
 
 module.exports=RPGGame;
