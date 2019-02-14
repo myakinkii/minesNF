@@ -5,6 +5,7 @@ function RPGGame(pars) {
 	for (var u in this.players) if(!this.profiles[u]) this.profiles[u]={};
 	this.floor=1;
 	this.loot={};
+	this.recipes=[];
 };
 
 RPGGame.prototype = new Game;
@@ -21,7 +22,6 @@ RPGGame.prototype.onStartBoard = function () {
 			this.livesTotal+=8;
 		}
 	}
-	this.fledPreviousBattle=false;
 	this.lostCoords={};
 	this.digitPocket={};
 	this.bossLevel=1;
@@ -180,6 +180,7 @@ RPGGame.prototype.hitMob = function (e) {
 };
 
 RPGGame.prototype.resetFloor = function () {
+	this.recipes=[];
 	this.loot={};
 	this.floor=1;
 };
@@ -208,7 +209,7 @@ RPGGame.prototype.ascendToFloor1 = function (e) {
 	var voteAscendAccepted=true;
 	for (var p in this.players) if(!this.voteAscend[p]) voteAscendAccepted=false;
 	if (voteAscendAccepted) {
-		this.resetBoard({eventKey:'completeFloorAscend',result:"win",floor:this.floor,loot:this.loot});
+		this.resetBoard({eventKey:'completeFloorAscend',result:"win",floor:this.floor,loot:this.loot,recipes:this.recipes});
 		this.resetFloor();
 	}
 };
@@ -233,12 +234,19 @@ RPGGame.prototype.completeFloor = function (e) {
 	}
 	e.loot=this.loot;
 	e.floor=this.floor;
+	var effects=["maxhp","patk","pdef","speed"];
+	if (this.knowledgePresence && e.eventKey!='endBattleStole'){
+		var effect=effects[Math.floor(Math.random()*4)];
+		this.recipes.push(effect);
+		e.effect=effect;
+	}
 	this.emitEvent('party', this.id, 'game', 'CompleteFloor', e);
 };
 
 RPGGame.prototype.onResetBoard = function (e) {
 	this.inBattle=false;
 	this.floorCompleted=false;
+	this.knowledgePresence=false;
 	this.emitEvent('party', this.id, 'system', 'Message', 'Floor result: '+e.eventKey);
 	this.emitEvent('party', this.id, 'game', 'ShowResultLocal', e);
 };
@@ -348,17 +356,22 @@ RPGGame.prototype.startBattle = function () {
 		this.genBossEquip(this.floor,this.bossLevel,this.bSize,stat),
 		{"maxhp":0,"patk":0,"pdef":0,"speed":0,"level":this.bossLevel,"mob":1}
 	);
+	
+	var recipeChance=0.1;
+	if (this.fledPreviousBattle || this.floor<3) recipeChance=0;
+	this.fledPreviousBattle=false;
+	
+	this.knowledgePresence=Math.random()<recipeChance;
 
 	var names=['angry','hungry','greedy','grumpy'];
-	bossProfile.name=names[Math.floor(names.length*Math.random())]+' Phoenix';
+	bossProfile.name=(this.knowledgePresence?'wise':names[Math.floor(names.length*Math.random())])+' Phoenix';
 	bossProfile.hp=bossProfile.level+bossProfile.maxhp;
 	this.profiles.boss=bossProfile;
 	bossProfile.bossRatio=this.calcFloorCompleteRatio(this.bossLevel,this.bSize,stat);
 	
-	for (var p in this.players) names.push(p);
 	this.emitEvent('party', this.id, 'system', 'Message', 'Start Battle vs '+ bossProfile.name);
 	this.emitEvent('party', this.id, 'game', 'StartBattleLocal', {
-		key:'startBattle',profiles:this.profiles,
+		key:'startBattle',profiles:this.profiles,knowledgePresence:this.knowledgePresence,
 		time:stat.time, floor:this.floor, livesLost:this.livesLost, bossName:bossProfile.name
 	});
 };
