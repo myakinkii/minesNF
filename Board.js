@@ -17,8 +17,8 @@ Board.prototype.init=function (Xinit,Yinit,r){
   }
   var steps=this.bombs;
   while (steps>0){
-    var x=Math.round(Math.random()*(this.sizeX-1))+1;
-    var y=Math.round(Math.random()*(this.sizeY-1))+1;
+    var x = Math.floor(Math.random()*this.sizeX)+1;
+    var y = Math.floor(Math.random()*this.sizeY)+1;
     if (this.board[y][x]>8 || (Math.abs(x-Xinit)<r && Math.abs(y-Yinit)<r)) continue
     else {
       this.mines[this.tabId+'_'+x+'_'+y]=-8;
