@@ -27,26 +27,56 @@ RPGGame.prototype.onStartBoard = function () {
 	this.bossLevel=1;
 };
 
+RPGGame.prototype.adjustLivesLost=function(profile){
+	if (profile.mob) return 1;
+	return Math.sqrt((8-profile.livesLost)/9);
+};
+
+RPGGame.prototype.calcFloorCompleteRatio=function(bossLevel,bSize,stat){
+	var ratio=1;
+	var times={"small":10.0,"medium":40.0,"big":120.0};
+	var bossLevelRatio={ 1:0.8, 2:0.9, 3:1, 4:1.1, 5:1.2, 6:1.3, 7:1.5, 8:2};
+	ratio*=bossLevelRatio[bossLevel];
+	var timeRatio=(times[bSize]-stat.time)/times[bSize];
+	if (timeRatio<0) timeRatio=1;
+	ratio*=Math.sqrt(timeRatio);
+	return ratio;
+};
+
+RPGGame.prototype.adjustBossRatio=function(profile){
+	if (profile.mob) return profile.bossRatio;
+	return 1;
+};	
+
 RPGGame.prototype.calcAtk = function (atkProfile,defProfile) {
 	var re={dmg:0,eventKey:'hitDamage',attack:atkProfile.name,defense:defProfile.name};
 	var evadeChance=0.2;
 	evadeChance+=0.1*(defProfile.speed-atkProfile.speed);
+	evadeChance*=this.adjustLivesLost(defProfile);
+	evadeChance*=this.adjustBossRatio(defProfile);
 	if (Math.random()<=evadeChance) {
 		re.eventKey='hitEvaded';
+		re.chance=evadeChance;
 		return re;
 	}
 	var parryChance=0.2;
-	parryChance+=0.1*(defProfile.patk-defProfile.patk);
+	parryChance+=0.1*(defProfile.patk-atkProfile.patk);
+	parryChance*=this.adjustLivesLost(defProfile);
+	parryChance*=this.adjustBossRatio(defProfile);
 	if (Math.random()<=parryChance){
 		re.eventKey='hitParried';
+		re.chance=parryChance;
 		return re;
 	}
 	var atk=atkProfile.patk+1;
 	var critChance=0.1;
 	critChance+=0.1*(atkProfile.speed-defProfile.speed);
+	critChance*=this.adjustLivesLost(atkProfile);
+	critChance*=this.adjustBossRatio(atkProfile);
 	if (Math.random()<=critChance){
 		atk*=2;
 		re.eventKey='hitDamageCrit';
+		re.chance=critChance;
 	}
 	if (defProfile.pdef+1>atk) re.eventKey='hitBlocked';
 	else re.dmg=atk;
@@ -79,7 +109,7 @@ RPGGame.prototype.stealLoot = function (e) {
 	bossProfile.stealAttempts++;
 	
 	var fasterRatio=1;
-	if (userProfile.speed>bossProfile.speed) fasterRatio=(userProfile.speed+1)/(bossProfile.speed+1);
+	if (userProfile.speed>bossProfile.speed) fasterRatio=Math.sqrt((userProfile.speed+1)/(bossProfile.speed+1));
 	
 	var spotChance=0.2*bossProfile.stealAttempts/fasterRatio;
 	if (Math.random()<spotChance){
@@ -87,18 +117,21 @@ RPGGame.prototype.stealLoot = function (e) {
 		bossProfile.patk=Math.ceil(1.3*(bossProfile.patk+1));
 		bossProfile.speed=Math.ceil(1.3*(bossProfile.speed+1));
 		this.emitEvent('party', this.id, 'system', 'Message', 'Stealing failed. Spotted');
-		this.emitEvent('party', this.id, 'game', 'StealFailed', {user:e.user,spotted:true,profiles:this.profiles});
+		this.emitEvent('party', this.id, 'game', 'StealFailed', 
+			{ user:e.user, spotted:true, profiles:this.profiles, chance:spotChance }
+		);
 		return;
 	}
 	
-	var stealChance=fasterRatio/bossProfile.level/Math.sqrt(bossProfile.stealAttempts)/8;
-
+	var stealChance=fasterRatio/bossProfile.level*Math.sqrt(bossProfile.stealAttempts)/8;
+	stealChance*=this.adjustLivesLost(userProfile);
 	if (Math.random()<stealChance) {
 		this.inBattle=false;
+		this.emitEvent('party', this.id, 'game', 'StealSucceeded',  { user:e.user,chance:stealChance } );
 		this.completeFloor({eventKey:'endBattleStole'});
 	} else {
 		this.emitEvent('party', this.id, 'system', 'Message', 'Stealing failed');
-		this.emitEvent('party', this.id, 'game', 'StealFailed', {user:e.user,spotted:false});
+		this.emitEvent('party', this.id, 'game', 'StealFailed', { user:e.user,spotted:false,chance:stealChance } );
 	}
 };
 
@@ -272,12 +305,7 @@ RPGGame.prototype.onBomb = function (re) {
 RPGGame.prototype.genBossEquip=function(floor,bossLevel,bSize,stat){
 	var equip=[];
 	var effects=["maxhp","patk","pdef","speed"];
-	var times={"small":10,"medium":40,"big":120};
-	var bossLevelRatio={ 1:0.8, 2:0.9, 3:1, 4:1.1, 5:1.2, 6:1.3, 7:1.5, 8:2};
-	var timeRatio=(times[bSize]-stat.time)/times.big;
-	if (timeRatio<0) timeRatio=0;
-	var gemCount=Math.floor(floor*bossLevelRatio[bossLevel]*(1-timeRatio) );
-	gemCount=floor;
+	var gemCount=floor;
 	while (gemCount>0) {
 		equip.push( "common_"+effects[Math.floor(Math.random()*4)] );
 		gemCount--;
@@ -325,14 +353,13 @@ RPGGame.prototype.startBattle = function () {
 	bossProfile.name=names[Math.floor(names.length*Math.random())]+' Phoenix';
 	bossProfile.hp=bossProfile.level+bossProfile.maxhp;
 	this.profiles.boss=bossProfile;
+	bossProfile.bossRatio=this.calcFloorCompleteRatio(this.bossLevel,this.bSize,stat);
 	
-	var names=[]; 
 	for (var p in this.players) names.push(p);
-	this.emitEvent('party', this.id, 'system', 'Message', 'Start Battle: '+names.join(',')+' vs '+ bossProfile.name);
+	this.emitEvent('party', this.id, 'system', 'Message', 'Start Battle vs '+ bossProfile.name);
 	this.emitEvent('party', this.id, 'game', 'StartBattleLocal', {
-		key:'startBattle',time:stat.time, floor:this.floor, profiles:this.profiles,
-		userName:names.join(','), livesLost:this.livesLost,
-		bossName:bossProfile.name, bossLevel:bossProfile.level
+		key:'startBattle',profiles:this.profiles,
+		time:stat.time, floor:this.floor, livesLost:this.livesLost, bossName:bossProfile.name
 	});
 };
 
