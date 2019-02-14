@@ -91,7 +91,6 @@ RPGGame.prototype.calcAtk = function (atkProfile,defProfile) {
 		return re;
 	}
 	re.dmg=atk;
-	re.eventKey='hitDamage';
 	return re;
 };
 
