@@ -1,5 +1,5 @@
 var Game=require('./Game.js');
-	
+
 function RPGGame(pars) {
 	Game.call(this, pars);
 	for (var u in this.players) if(!this.profiles[u]) this.profiles[u]={};
@@ -338,10 +338,8 @@ RPGGame.prototype.adjustProfile=function(equip,template){
 	template.equip=equip;
 	var power={"common":1,"rare":2,"epic":3};
 	var effects={"maxhp":1,"patk":1,"pdef":1,"speed":1};
-	var skipPdef=!template.mob && this.fledPreviousBattle;
 	return equip.reduce(function(prev,cur){
 		var gem=cur.split("_");
-		if (gem[1]=='pdef' && skipPdef) return prev;
 		if (effects[gem[1]] && power[gem[0]] )prev[gem[1]]+=power[gem[0]];
 		return prev;
 	},template);
@@ -363,8 +361,10 @@ RPGGame.prototype.startBattle = function () {
 				"level":8, "name":u, "livesLost":this.profiles[u].livesLost
 			}
 		);
-		userProfile.hp=userProfile.level-userProfile.livesLost+userProfile.maxhp;
-		if (userProfile.livesLost<8) this.totalHp+=userProfile.hp;
+		if (this.fledPreviousBattle) userProfile.pdef=this.profiles[u].pdef;
+		if (userProfile.livesLost<8) userProfile.hp=userProfile.level-userProfile.livesLost+userProfile.maxhp;
+		else userProfile.hp=0;
+		this.totalHp+=userProfile.hp;
 		this.profiles[u]=userProfile;
 	}
 	
@@ -382,12 +382,13 @@ RPGGame.prototype.startBattle = function () {
 	var wiseBosses={ 
 		small:{ 5:1.5, 6:2, 7:2, 8:3 },
 		medium:{ 6:1.5, 7:2, 8:3 },
-		large:{ 6:1.25, 7:2, 8:3 }
+		big:{ 6:1.25, 7:2, 8:3 }
 	};
 	if (wiseBosses[this.bSize][this.bossLevel]) recipeChance*=wiseBosses[this.bSize][this.bossLevel];
-	if (this.fledPreviousBattle || this.floor<3) recipeChance=0;
+	var wiseFloors={small:3,medium:2,big:1};
+	if (this.fledPreviousBattle || this.floor<wiseFloors[this.bSize]) recipeChance=0;
 	this.fledPreviousBattle=false;
-	this.knowledgePresence=this.rollDice("recipeFind",recipeChance,1);
+	this.knowledgePresence=this.rollDice("recipeFind",recipeChance);
 
 	var names=['angry','hungry','greedy','grumpy'];
 	bossProfile.name=(this.knowledgePresence?'wise':names[Math.floor(names.length*Math.random())])+' Phoenix';
