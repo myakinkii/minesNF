@@ -302,6 +302,7 @@ RPGGame.prototype.onBomb = function (re) {
 		this.livesLost++;
 		this.profiles[re.user].livesLost++;
 		this.livesTotal--;
+		this.emitEvent('party', this.id, 'game', 'UserLostLife', {user:re.user,livesLost:this.profiles[re.user].livesLost});
 	}
 	if (this.profiles[re.user].livesLost==8) {
 		this.emitEvent('client', re.user, 'system', 'Message', 'You have lost all your lives');
