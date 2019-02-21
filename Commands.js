@@ -3,7 +3,9 @@
     '/ascend':{f:'ascendToFloor1',d:' - ascend to collect the loot'},
     '/flee':{f:'fleeBattle',d:' - flee the fight'},
     '/steal':{f:'stealLoot',d:' - try to steal the loot'},
-    '/hit':{f:'hitMob',d:' - hit mob'},
+    '/cancel':{f:'cancelAction',d:' - cancel action if possible'},
+    '/assist':{f:'assistAttack',d:' - <player> assist with attack'},
+    '/hit':{f:'hitTarget',d:' - [<player>] hit target or mob'},
     '/equip':{f:'equipGear',d:' <[gem1, gem2, ... ]> - equip gems while not in battle'},
     '/check':{f:'checkCell',d:' - check cell <x> <y>'},
     '/quit':{f:'quitGame',d:' - quit current game'}

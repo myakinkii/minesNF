@@ -1,13 +1,19 @@
 var Game=require('./Game.js');
+var Player=require('./Player.js');
+var RPGMechanics=require("./RPGMechanics");
 
 function RPGGame(pars) {
 	Game.call(this, pars);
-	for (var u in this.players) if(!this.profiles[u]) this.profiles[u]={};
+	this.actors={};
+	for (var u in this.players) {
+		if(!this.profiles[u]) this.profiles[u]={};
+		this.actors[u]=new Player(this,this.profiles[u].equip||[]);
+	}
 	this.floor=1;
 	this.loot={};
 	this.recipes=[];
 	this.armorEndurance=1;
-};
+}
 
 RPGGame.prototype = new Game;
 
@@ -28,86 +34,19 @@ RPGGame.prototype.onStartBoard = function () {
 	this.bossLevel=1;
 };
 
-RPGGame.prototype.adjustLivesLost=function(profile){
-	if (profile.mob) return 1;
-	return Math.sqrt((8-profile.livesLost)/9);
-};
-
-RPGGame.prototype.calcFloorCompleteRatio=function(bossLevel,bSize,stat){
-	var ratio=1;
-	var times={"small":10.0,"medium":40.0,"big":120.0};
-	var bossLevelRatio={ 1:0.7, 2:0.8, 3:0.9, 4:1.1, 5:1.2, 6:1.3, 7:1.4, 8:1.5};
-	ratio*=bossLevelRatio[bossLevel];
-	var timeRatio=(times[bSize]-stat.time)/times[bSize];
-	if (timeRatio<0) timeRatio=1;
-	ratio*=Math.sqrt(timeRatio);
-	return ratio;
-};
-
-RPGGame.prototype.adjustBossRatio=function(profile){
-	if (profile.mob) return profile.bossRatio;
-	return 1;
-};	
-
-RPGGame.prototype.calcAtk = function (atkProfile,defProfile) {
-	var re={dmg:0,eventKey:'hitDamage',attack:atkProfile.name,defense:defProfile.name};
-	var evadeChance=0.2;
-	evadeChance+=0.1*(defProfile.speed-atkProfile.speed);
-	evadeChance*=this.adjustLivesLost(defProfile);
-	evadeChance*=this.adjustBossRatio(defProfile);
-	if (this.rollDice("fightEvade",evadeChance)){
-		re.eventKey='hitEvaded';
-		re.chance=evadeChance;
-		return re;
-	}
-	var parryChance=0.2;
-	parryChance+=0.1*(defProfile.patk-atkProfile.patk);
-	parryChance*=this.adjustLivesLost(defProfile);
-	parryChance*=this.adjustBossRatio(defProfile);
-	if (this.rollDice("fightParry",parryChance)){
-		re.eventKey='hitParried';
-		re.chance=parryChance;
-		return re;
-	}
-	var atk=atkProfile.patk+1;
-	var critChance=0.1;
-	critChance+=0.1*(atkProfile.speed-defProfile.speed);
-	critChance*=this.adjustLivesLost(atkProfile);
-	critChance*=this.adjustBossRatio(atkProfile);
-	if (this.rollDice("fightCrit",critChance)){
-		atk*=2;
-		re.eventKey='hitDamageCrit';
-		re.chance=critChance;
-	}
-	var armorEndureChance=0.5;
-	armorEndureChance+=0.1*(atkProfile.patk-defProfile.pdef);
-	if (defProfile.pdef+1>atk) {
-		if ( defProfile.armorEndurance==0 && defProfile.pdef>0 ){
-			re.eventKey='hitPdefDecrease';
-			defProfile.pdef--;
-			defProfile.armorEndurance=this.armorEndurance;
-		} else {
-			re.eventKey='hitBlocked';
-			if (this.rollDice("fightArmorEndure",armorEndureChance)) defProfile.armorEndurance--;
-		}
-		return re;
-	}
-	re.dmg=atk;
-	return re;
-};
-
 RPGGame.prototype.equipGear = function (e) {
 	if (e.pars.length==0 || e.pars.length>8 ) return;
-	var userProfile=this.profiles[e.user];
-	if (this.inBattle || userProfile.livesLost==8)  {
-		this.emitEvent('client', e.user, 'system', 'Message','You are in either dead, or in battle now! No time for that stuff');
-		return;
-	}
-	userProfile.equip=e.pars;
-	this.emitEvent('client', e.user, 'system', 'Message','Equipped '+userProfile.equip);
+	var user=this.actors[e.user];
+	
+	if ( user.equip || this.inBattle ) return;
+		
+	user.equip=e.pars;
+	this.emitEvent('client', e.user, 'system', 'Message','Equipped '+user.equip);
 };
 
 RPGGame.prototype.stealLoot = function (e) {
+	
+	var rpg=RPGMechanics;
 	
 	var userProfile=this.profiles[e.user],bossProfile=this.profiles.boss;
 	
@@ -125,7 +64,7 @@ RPGGame.prototype.stealLoot = function (e) {
 	if (userProfile.speed>bossProfile.speed) fasterRatio=Math.sqrt((userProfile.speed+1)/(bossProfile.speed+1));
 	
 	var spotChance=0.2*bossProfile.stealAttempts/fasterRatio;
-	if (this.rollDice("stealSpotted",spotChance)){
+	if (rpg.rollDice("stealSpotted",spotChance)){
 		bossProfile.spottedStealing=true;
 		bossProfile.patk=Math.ceil(1.3*(bossProfile.patk+1));
 		bossProfile.speed=Math.ceil(1.3*(bossProfile.speed+1));
@@ -137,8 +76,8 @@ RPGGame.prototype.stealLoot = function (e) {
 	}
 	
 	var stealChance=fasterRatio/bossProfile.level*Math.sqrt(bossProfile.stealAttempts)/8;
-	stealChance*=this.adjustLivesLost(userProfile);
-	if (this.rollDice("stealSucceed",stealChance)){
+	stealChance*=rpg.adjustLivesLost(userProfile);
+	if (rpg.rollDice("stealSucceed",stealChance)){
 		this.inBattle=false;
 		this.emitEvent('party', this.id, 'game', 'StealSucceeded',  { user:e.user,chance:stealChance } );
 		this.completeFloor({eventKey:'endBattleStole'});
@@ -148,48 +87,40 @@ RPGGame.prototype.stealLoot = function (e) {
 	}
 };
 
-
-RPGGame.prototype.hitMob = function (e) {
-	
+RPGGame.prototype.cancelAction = function (e) {
 	if (!this.inBattle) return;
-	var userProfile=this.profiles[e.user],bossProfile=this.profiles.boss;
+	var user=this.actors[e.user];
+	if(user.profile.state!="cooldown") user.cancelAction();
+};
 
-	if (userProfile.livesLost==8 || userProfile.hp==0) {
+RPGGame.prototype.assistAttack = function (e) {
+
+	if (!this.inBattle) return;
+	var user=this.actors[e.user], tgt=this.actors[e.pars[0]||"boss"];
+
+	if (user.profile.livesLost==8 || user.profile.hp==0) {
 		this.emitEvent('client', e.user, 'system', 'Message','You are dead now, and cannot do that');
 		return;
 	}
 
-	var re={};
+	if (user.profile.name==tgt.profile.name) return;
 	
-	var hitResult=this.calcAtk(userProfile,bossProfile);
-	if (hitResult.dmg) { 
-		bossProfile.hp--;
-		bossProfile.wasHit=true;
-	}
-	hitResult.profiles=this.profiles;
-	this.emitEvent('party', this.id, 'game', 'ResultHitMob', hitResult);
-	this.emitEvent('party', this.id, 'system', 'Message',[hitResult.eventKey,userProfile.name,'>',bossProfile.name,'(',bossProfile.hp,')'].join(' '));
-	
-	hitResult=this.calcAtk(bossProfile,userProfile);
-	if (hitResult.dmg)  {
-		userProfile.hp--;
-		this.totalHp--;
-	}
-	hitResult.profiles=this.profiles;
-	this.emitEvent('party', this.id, 'game', 'ResultHitMob', hitResult);
-	this.emitEvent('party', this.id, 'system', 'Message',[hitResult.eventKey,bossProfile.name,'>',userProfile.name,'(',userProfile.hp,')'].join(' '));
+	if (user.profile.state=="active" && tgt.profile.state=="attack") user.addAssist(tgt);
+};
 
-	if (bossProfile.hp==0) {
-		this.inBattle=false;
-		re.eventKey='endBattleWin';
-		this.completeFloor(re);
-	} else if (this.totalHp==0){
-		this.inBattle=false;
-		re.eventKey='endBattleLose';
-		re.floor=this.floor;
-		this.resetBoard(re);
-		this.resetFloor();
+RPGGame.prototype.hitTarget = function (e) {
+	
+	if (!this.inBattle) return;	
+	var user=this.actors[e.user],tgt=this.actors[e.pars[0]||"boss"];
+	
+	if (user.profile.livesLost==8 || user.profile.hp==0) {
+		this.emitEvent('client', e.user, 'system', 'Message','You are dead now, and cannot do that');
+		return;
 	}
+	
+	if (user.profile.state!="active") return;
+	
+	user.startAttack(tgt);
 };
 
 RPGGame.prototype.resetFloor = function () {
@@ -324,28 +255,6 @@ RPGGame.prototype.onBomb = function (re) {
 	}
 };
 
-RPGGame.prototype.genBossEquip=function(floor,bossLevel,bSize,stat){
-	var equip=[];
-	var effects=["maxhp","patk","pdef","speed"];
-	var gemCount=floor;
-	while (gemCount>0) {
-		equip.push( "common_"+effects[Math.floor(Math.random()*4)] );
-		gemCount--;
-	}
-	return equip;
-};
-
-RPGGame.prototype.adjustProfile=function(equip,template){
-	template.equip=equip;
-	var power={"common":1,"rare":2,"epic":3};
-	var effects={"maxhp":1,"patk":1,"pdef":1,"speed":1};
-	return equip.reduce(function(prev,cur){
-		var gem=cur.split("_");
-		if (effects[gem[1]] && power[gem[0]] )prev[gem[1]]+=power[gem[0]];
-		return prev;
-	},template);
-};
-
 RPGGame.prototype.startBattle = function () {
 	
 	this.inBattle=true;
@@ -355,13 +264,10 @@ RPGGame.prototype.startBattle = function () {
 	this.totalHp=0;
 
 	for (var u in this.players){
-		var userProfile=this.adjustProfile(
-			this.profiles[u].equip||[],
-			{
-				"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":this.armorEndurance,
-				"level":8, "name":u, "livesLost":this.profiles[u].livesLost
-			}
-		);
+		var userProfile=this.actors[u].adjustProfile({
+			"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":this.armorEndurance,
+			"level":8, "name":u, "state":"active", "livesLost":this.profiles[u].livesLost
+		});
 		if (this.fledPreviousBattle) userProfile.pdef=this.profiles[u].pdef;
 		if (userProfile.livesLost<8) userProfile.hp=userProfile.level-userProfile.livesLost+userProfile.maxhp;
 		else userProfile.hp=0;
@@ -371,13 +277,13 @@ RPGGame.prototype.startBattle = function () {
 	
 	for (var p in this.profiles) if (!this.players[p]) delete this.profiles[p];
 	
-	var bossProfile=this.adjustProfile(
-		this.genBossEquip(this.floor,this.bossLevel,this.bSize,stat),
-		{
-			"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":this.armorEndurance,
-			"level":this.bossLevel, "mob":1
-		}
-	);
+	var rpg=RPGMechanics;
+	
+	this.actors.boss=new Player(this, rpg.genBossEquip(this.floor,this.bossLevel,this.bSize,stat) );
+	var bossProfile=this.actors.boss.adjustProfile({
+		"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":this.armorEndurance,
+		"level":this.bossLevel, "mob":1, "state":"active"
+	});
 	
 	var recipeChance=0.1;
 	var wiseBosses={ 
@@ -389,25 +295,19 @@ RPGGame.prototype.startBattle = function () {
 	var wiseFloors={small:3,medium:2,big:1};
 	if (this.fledPreviousBattle || this.floor<wiseFloors[this.bSize]) recipeChance=0;
 	this.fledPreviousBattle=false;
-	this.knowledgePresence=this.rollDice("recipeFind",recipeChance);
+	this.knowledgePresence=rpg.rollDice("recipeFind",recipeChance);
 
 	var names=['angry','hungry','greedy','grumpy'];
 	bossProfile.name=(this.knowledgePresence?'wise':names[Math.floor(names.length*Math.random())])+' Phoenix';
 	bossProfile.hp=bossProfile.level+bossProfile.maxhp;
 	this.profiles.boss=bossProfile;
-	bossProfile.bossRatio=this.calcFloorCompleteRatio(this.bossLevel,this.bSize,stat);
+	bossProfile.bossRatio=rpg.calcFloorCompleteRatio(this.bossLevel,this.bSize,stat);
 	
 	this.emitEvent('party', this.id, 'system', 'Message', 'Start Battle vs '+ bossProfile.name);
 	this.emitEvent('party', this.id, 'game', 'StartBattleLocal', {
 		key:'startBattle',profiles:this.profiles,knowledgePresence:this.knowledgePresence,
 		time:stat.time, floor:this.floor, livesLost:this.livesLost, bossName:bossProfile.name
 	});
-};
-
-RPGGame.prototype.rollDice = function (effect,chance,log) {
-	var rnd=Math.random();
-	if(log) console.log(effect,chance,rnd); //some logging or processing later maybe
-	return chance>rnd;
 };
 
 RPGGame.prototype.onComplete = function (re) {
