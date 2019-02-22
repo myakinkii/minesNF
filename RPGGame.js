@@ -31,13 +31,6 @@ RPGGame.prototype.equipGear = function (e) {
 	this.emitEvent('client', e.user, 'system', 'Message','Equipped '+user.equip);
 };
 
-RPGGame.prototype.cancelAction = function (e) {
-	var user=this.actors[e.user];
-	this.assertAliveAndInBattle(user);
-	this.assertNotCoolDown(user);
-	user.cancelAction();
-};
-
 RPGGame.prototype.assertActiveState=function(user){
 	if (user.profile.state!="active") throw "not active";
 };
@@ -56,6 +49,15 @@ RPGGame.prototype.assertAliveAndInBattle=function(user){
 		this.emitEvent('client', user, 'system', 'Message','You are dead now, and cannot do that');
 		throw "dead";
 	}	
+};
+
+RPGGame.prototype.cancelAction = function (e) {
+	var user=this.actors[e.user];
+	try {
+		this.assertAliveAndInBattle(user);
+		this.assertNotCoolDown(user);
+		user.cancelAction();
+	} catch (e) {}
 };
 
 RPGGame.prototype.trySetPlayerState = function (userName,state) {
