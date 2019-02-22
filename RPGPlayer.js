@@ -23,7 +23,7 @@ Player.prototype={
 		if (profile.state==state) return;
 		var game=this.game;
 		profile.state=state;
-		this.game.actors.boss.onState(profile,state,arg);
+		if(this.game.actors.boss) this.game.actors.boss.onState(profile,state,arg);
 		game.emitEvent('party', game.id, 'game', 'ChangeState', { profile:profile, user:profile.name, state:profile.state, val:arg });
 	},
 	
@@ -83,7 +83,7 @@ Player.prototype={
 		
 		var game=this.game;
 		var defProfile=this.profile;
-		var re={dmg:0,eventKey:'hitDamage',attack:atkProfile.name,defense:defProfile.name};
+		var re={dmg:0,eventKey:'hitDamage'};
 		
 		var adjustedAtk={ 
 			bossRatio:atkProfile.bossRatio, livesLost:atkProfile.livesLost, 
@@ -132,7 +132,6 @@ Player.prototype={
 					cooldowns=addCoolDown(cooldowns,defProfile,noCooldown);
 				}
 			} else {
-				if (!defProfile.mob) game.totalHp--;
 				defProfile.hp--;
 				defProfile.wasHit=true;
 				re.dmg=dmg;
@@ -141,24 +140,11 @@ Player.prototype={
 			}
 		}
 		
-		re.profiles=game.profiles;
-		game.emitEvent('party', game.id, 'game', 'ResultHitTarget', re);
-		
 		atkProfile.assists=null;
-		var resetCooldowns=false;
-		
-		if (defProfile.mob && defProfile.hp==0) {
-			game.inBattle=false;
-			game.completeFloor.call(game,{eventKey:'endBattleWin'});
-			resetCooldowns=true;
-		} else if (!defProfile.mob && game.totalHp==0){
-			game.inBattle=false;
-			game.resetBoard.call(game,{eventKey:'endBattleLose', floor:game.floor});
-			game.resetFloor.call(game);
-			resetCooldowns=true;
-		}
 
-		if (resetCooldowns){
+		game.onResultHitTarget(re,atkProfile,defProfile);
+
+		if (!game.inBattle){
 			cooldowns=addCoolDown([],atkProfile,noCooldown,true);
 			cooldowns=addCoolDown(cooldowns,defProfile,noCooldown);
 		}

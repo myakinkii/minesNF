@@ -39,30 +39,32 @@ RPGGame.prototype.cancelAction = function (e) {
 };
 
 RPGGame.prototype.assertActiveState=function(user){
-	if (user.profile.state!="active") return;
+	if (user.profile.state!="active") throw "not active";
 };
 
 RPGGame.prototype.assertNotCoolDown=function(user){
-	if (user.profile.state=="cooldown") return;
+	if (user.profile.state=="cooldown") throw "cooldown";
 };
 
 RPGGame.prototype.assertNotSelf=function(user,tgt){
-	if (user.profile.name==tgt.profile.name) return;
+	if (user.profile.name==tgt.profile.name) throw "self";
 };
 
 RPGGame.prototype.assertAliveAndInBattle=function(user){
-	if (!this.inBattle) return;
+	if (!this.inBattle) throw "not in battle";
 	if (user.profile.livesLost==8 || user.profile.hp==0) {
-		this.emitEvent('client', e.user, 'system', 'Message','You are dead now, and cannot do that');
-		return;
+		this.emitEvent('client', user, 'system', 'Message','You are dead now, and cannot do that');
+		throw "dead";
 	}	
 };
 
 RPGGame.prototype.trySetPlayerState = function (userName,state) {
 	var user=this.actors[userName];
-	this.assertAliveAndInBattle(user);
-	this.assertNotCoolDown(user);
-	user.setState(user.profile,state);
+	try {
+		this.assertAliveAndInBattle(user);
+		this.assertNotCoolDown(user);
+		user.setState(user.profile,state);
+	} catch (e) {}
 };
 
 RPGGame.prototype.setParryState = function (e) {
@@ -75,17 +77,21 @@ RPGGame.prototype.setEvadeState = function (e) {
 
 RPGGame.prototype.assistAttack = function (e) {
 	var user=this.actors[e.user], tgt=this.actors[e.pars[0]||"boss"];
-	this.assertAliveAndInBattle(user);
-	this.assertNotSelf(user,tgt);
-	if (user.profile.state=="active" && tgt.profile.state=="attack") user.addAssist(tgt);
+	try {
+		this.assertAliveAndInBattle(user);
+		this.assertNotSelf(user,tgt);
+		if (user.profile.state=="active" && tgt.profile.state=="attack") user.addAssist(tgt);
+	} catch (e) {}
 };
 
 RPGGame.prototype.hitTarget = function (e) {
 	var user=this.actors[e.user],tgt=this.actors[e.pars[0]||"boss"];
-	this.assertAliveAndInBattle(user);
-	this.assertActiveState(user);
-	this.assertNotSelf(user,tgt);
-	user.startAttack(tgt);
+	try {
+		this.assertAliveAndInBattle(user);
+		this.assertActiveState(user);
+		this.assertNotSelf(user,tgt);
+		if(tgt.profile.hp>0) user.startAttack(tgt);
+	} catch (e) {}
 };
 
 RPGGame.prototype.sendUserVote = function (user, eventKey) {

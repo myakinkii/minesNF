@@ -21,16 +21,6 @@ RPGCoopGame.prototype.onStartBoard = function () {
 	this.bossLevel=1;
 };
 
-RPGCoopGame.prototype.equipGear = function (e) {
-	if (e.pars.length==0 || e.pars.length>8 ) return;
-	var user=this.actors[e.user];
-	
-	if ( user.equip || this.inBattle ) return;
-		
-	user.equip=e.pars;
-	this.emitEvent('client', e.user, 'system', 'Message','Equipped '+user.equip);
-};
-
 RPGCoopGame.prototype.stealLoot = function (e) {
 	
 	var userProfile=this.profiles[e.user],bossProfile=this.profiles.boss;
@@ -72,52 +62,11 @@ RPGCoopGame.prototype.stealLoot = function (e) {
 	}
 };
 
-RPGCoopGame.prototype.cancelAction = function (e) {
-	if (!this.inBattle) return;
-	var user=this.actors[e.user];
-	if(user.profile.state!="cooldown") user.cancelAction();
-};
-
-RPGCoopGame.prototype.assistAttack = function (e) {
-
-	if (!this.inBattle) return;
-	var user=this.actors[e.user], tgt=this.actors[e.pars[0]||"boss"];
-
-	if (user.profile.livesLost==8 || user.profile.hp==0) {
-		this.emitEvent('client', e.user, 'system', 'Message','You are dead now, and cannot do that');
-		return;
-	}
-
-	if (user.profile.name==tgt.profile.name) return;
-	
-	if (user.profile.state=="active" && tgt.profile.state=="attack") user.addAssist(tgt);
-};
-
-RPGCoopGame.prototype.hitTarget = function (e) {
-	
-	if (!this.inBattle) return;	
-	var user=this.actors[e.user],tgt=this.actors[e.pars[0]||"boss"];
-	
-	if (user.profile.livesLost==8 || user.profile.hp==0) {
-		this.emitEvent('client', e.user, 'system', 'Message','You are dead now, and cannot do that');
-		return;
-	}
-	
-	if (user.profile.state!="active") return;
-	
-	user.startAttack(tgt);
-};
-
 RPGCoopGame.prototype.resetFloor = function () {
 	this.fledPreviousBattle=false;
 	this.recipes=[];
 	this.loot={};
 	this.floor=1;
-};
-
-RPGCoopGame.prototype.sendUserVote = function (user, eventKey) {
-	this.emitEvent('party', this.id, 'system', 'Message', user+'voted for '+eventKey);
-	this.emitEvent('party', this.id, 'game', 'GameUserVote', {user:user,eventKey:eventKey});
 };
 
 RPGCoopGame.prototype.fleeBattle = function (e) {
@@ -178,24 +127,12 @@ RPGCoopGame.prototype.onResetBoard = function (e) {
 	this.floorCompleted=false;
 	this.knowledgePresence=false;
 	this.emitEvent('party', this.id, 'system', 'Message', 'Floor result: '+e.eventKey);
-	this.emitEvent('party', this.id, 'game', 'ShowResultLocal', e);
+	this.emitEvent('party', this.id, 'game', 'ShowResultRPGCoop', e);
 };
 
 RPGCoopGame.prototype.onCells = function (re) {
 	this.addCells(re.cells);
 	this.openCells(re.cells);
-};
-
-RPGCoopGame.prototype.addCells = function (cells) {
-	var i,n;
-	for (i in cells) {
-		n=cells[i];
-		if(n>0) {
-			if (!this.digitPocket[n]) this.digitPocket[n]=0;
-			this.digitPocket[n]++;
-			if (n>this.bossLevel) this.bossLevel=n;
-		}
-	}
 };
 
 RPGCoopGame.prototype.canCheckCell=function(genericCheckResult,user){
@@ -277,10 +214,31 @@ RPGCoopGame.prototype.startBattle = function () {
 	bossProfile.bossRatio=RPGMechanics.calcFloorCompleteRatio(this.bossLevel,this.bSize,stat);
 	
 	this.emitEvent('party', this.id, 'system', 'Message', 'Start Battle vs '+ bossProfile.name);
-	this.emitEvent('party', this.id, 'game', 'StartBattleLocal', {
+	this.emitEvent('party', this.id, 'game', 'StartBattleCoop', {
 		key:'startBattle',profiles:this.profiles,knowledgePresence:this.knowledgePresence,
 		time:stat.time, floor:this.floor, livesLost:this.livesLost, bossName:bossProfile.name
 	});
+};
+
+RPGCoopGame.prototype.onResultHitTarget = function (re,atkProfile,defProfile) {
+	
+	re.profiles=this.profiles;
+	re.attack=atkProfile.name;
+	re.defense=defProfile.name;
+
+	this.emitEvent('party', this.id, 'game', 'ResultHitTarget', re);
+	
+	if ( re.dmg && !defProfile.mob) this.totalHp--;
+			
+	if (defProfile.mob && defProfile.hp==0) {
+		this.inBattle=false;
+		this.completeFloor({eventKey:'endBattleWin'});
+	} else if (!defProfile.mob && this.totalHp==0){
+		this.inBattle=false;
+		this.resetBoard({eventKey:'endBattleLose', floor:this.floor});
+		this.resetFloor();
+		
+	}
 };
 
 RPGCoopGame.prototype.onComplete = function (re) {

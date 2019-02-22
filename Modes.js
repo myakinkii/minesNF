@@ -1,14 +1,16 @@
-var Coop=require('./Coop.js');
-var Versus=require('./Versus.js');
-var Rank=require('./Rank.js');
-var RPGCoop=require('./RPGCoop.js');
+var CoopGame=require('./Coop');
+var VersusGame=require('./Versus');
+var RankGame=require('./Rank');
+var RPGCoopGame=require('./RPGCoop');
+var RPGVersusGame=require('./RPGVersus');
 
 module.exports.modes={
-     rank:{constr:Rank,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
-     soloRPG:{constr:RPGCoop,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
-     coop:{constr:Coop,s:{min:2,max:2},m:{min:2,max:3},b:{min:2,max:4}},
-     coopRPG:{constr:RPGCoop,s:{min:1,max:2},m:{min:1,max:3},b:{min:1,max:4}},
-     versus:{constr:Versus,s:{min:2,max:2},m:{min:2,max:3},b:{min:2,max:4}}
+     rank:{constr:RankGame,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
+     soloRPG:{constr:RPGCoopGame,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
+     coop:{constr:CoopGame,s:{min:2,max:2},m:{min:2,max:3},b:{min:2,max:4}},
+     coopRPG:{constr:RPGCoopGame,s:{min:1,max:2},m:{min:1,max:3},b:{min:1,max:4}},
+     versus:{constr:VersusGame,s:{min:2,max:2},m:{min:2,max:3},b:{min:2,max:4}},
+     versusRPG:{constr:RPGVersusGame,s:{min:2,max:2},m:{min:2,max:3},b:{min:2,max:4}}
   };
 
 module.exports.boards={
