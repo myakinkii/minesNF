@@ -1,4 +1,4 @@
-var Board=require('./Board.js');
+var Board=require('./Board');
 var EventEmitter=require('events').EventEmitter;
 
 function Game(pars){
@@ -97,19 +97,19 @@ return {mode:this.mode,
         mines:this.board.mines};
 };
 
-Game.prototype.checkCell=function(e){
-  var x=parseInt(e.pars[0])||0;
-  var y=parseInt(e.pars[1])||0;
-
-  if ( !(x<1 || x>this.board.sizeX) && !(y<1 || y>this.board.sizeY) ){ 
-    if (this.logStart==0)
-      this.board.init(x,y,2);
-    if (!this.pause && !this.penalty[e.user])
-      var re=this.board.checkCell(x,y,e.user);
+Game.prototype.checkCell = function (e) {
+  var x = parseInt(e.pars[0]) || 0;
+  var y = parseInt(e.pars[1]) || 0;
+  var cellFits=!(x < 1 || x > this.board.sizeX) && !(y < 1 || y > this.board.sizeY);
+  var genericCheck=!this.pause && !this.penalty[e.user];
+  var customCheck=this.canCheckCell?this.canCheckCell(genericCheck,e.user,x,y):genericCheck;
+  if (cellFits && customCheck) {
+    if (this.logStart==0) this.board.init(x, y, 2);
+    var re = this.board.checkCell(x, y, e.user);
   }
-  if (re){
+  if (re) {
     this.logEvent(re);
-    this['on'+re.flag].call(this,re);
+    this['on' + re.flag].call(this, re);
   }
 };
 

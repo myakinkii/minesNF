@@ -1,13 +1,13 @@
 var Coop=require('./Coop.js');
 var Versus=require('./Versus.js');
 var Rank=require('./Rank.js');
-var RPG=require('./RPG.js');
+var RPGCoop=require('./RPGCoop.js');
 
 module.exports.modes={
      rank:{constr:Rank,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
-     soloRPG:{constr:RPG,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
+     soloRPG:{constr:RPGCoop,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
      coop:{constr:Coop,s:{min:2,max:2},m:{min:2,max:3},b:{min:2,max:4}},
-     coopRPG:{constr:RPG,s:{min:1,max:2},m:{min:1,max:3},b:{min:1,max:4}},
+     coopRPG:{constr:RPGCoop,s:{min:1,max:2},m:{min:1,max:3},b:{min:1,max:4}},
      versus:{constr:Versus,s:{min:2,max:2},m:{min:2,max:3},b:{min:2,max:4}}
   };
 

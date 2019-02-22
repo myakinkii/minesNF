@@ -1,5 +1,5 @@
 var RPGMechanics=require("./RPGMechanics");
-
+	
 function Player(game,equip){
 	this.game=game;
 	this.equip=equip;
@@ -20,22 +20,28 @@ Player.prototype={
 	},
 		
 	setState:function(profile,state,arg){
+		if (profile.state==state) return;
 		var game=this.game;
 		profile.state=state;
+		this.game.actors.boss.onState(profile,state,arg);
 		game.emitEvent('party', game.id, 'game', 'ChangeState', { profile:profile, user:profile.name, state:profile.state, val:arg });
 	},
 	
 	applyCoolDown:function(players){
 		var self=this;
 		var game=this.game;
+		var avoidCooldownChance=0.5;
 		players.forEach(function(p){
 			var profile=game.profiles[p.name];
-			if (p.time>0) {
-				self.setState(profile,"cooldown",p.time);
-				game.actors[p.name].timer=setTimeout(function(){ self.setState(profile,"active"); }, p.time);
-			} else {
-				self.setState(profile,"active");
-				game.actors[p.name].timer=null;
+			if (p.time>0 && Math.random()>avoidCooldownChance ) {
+				if (game.actors[p.name].timer) {
+					clearTimeout(game.actors[p.name].timer);
+					game.actors[p.name].timer=null;
+				}
+				self.setState.call(self,profile,"cooldown",p.time);
+				game.actors[p.name].timer=setTimeout(function(){ self.setState.call(self,profile,"active"); }, p.time);
+			} else if ( p.attacker || profile.state!="attack") {
+				self.setState.call(self,profile,"active");
 			}
 		});
 	},
@@ -43,7 +49,10 @@ Player.prototype={
 	cancelAction:function(){
 		var me=this.profile;
 		this.setState(me,"active");
-		if (this.timer) clearTimeout(this.timer);
+		if (this.timer) {
+			clearTimeout(this.timer);
+			this.timer=null;
+		}
 	},
 
 	addAssist:function(tgt){
@@ -56,26 +65,30 @@ Player.prototype={
 	startAttack:function(tgt){
 		var me=this.profile;
 		this.setState(me,"attack",tgt.profile.name);
-		tgt.onStartAttack(me);
+		if (tgt.onStartAttack) tgt.onStartAttack(me);
 		this.timer=setTimeout(function(){ tgt.onEndAttack(me); },1000);
 	},
-	
-	onStartAttack:function(atkProfile){
-		var defProfile=this.profile;
-		var state=null;
-		if (defProfile.speed>atkProfile.speed) state="evade";
-		else if (defProfile.patk>atkProfile.patk) state="parry";
-		if (state) this.setState(defProfile,state)
-	},
-	
+
 	onEndAttack:function(atkProfile){
 		
+		function addCoolDown(cd,profile,time,attacker){
+			cd.push({ name:profile.mob?"boss":profile.name, time:time, attacker:attacker });
+			for (var a in profile.assists) cd.push({name:a,time:time, attacker:attacker});
+			return cd;
+		}
+		var cooldowns;
+		var defCooldownHit=1000;
+		var atkCooldownMiss=1500;
+		var noCooldown=0;
+		
+		var game=this.game;
 		var defProfile=this.profile;
 		var re={dmg:0,eventKey:'hitDamage',attack:atkProfile.name,defense:defProfile.name};
 		
-		var game=this.game;
-		
-		var adjustedAtk={ mob:0, livesLost:atkProfile.livesLost, patk:atkProfile.patk||1, speed:atkProfile.speed};
+		var adjustedAtk={ 
+			bossRatio:atkProfile.bossRatio, livesLost:atkProfile.livesLost, 
+			patk:atkProfile.patk||1, speed:atkProfile.speed
+		};
 		for (var a in atkProfile.assists) {
 			adjustedAtk.patk+=(atkProfile.assists[a].patk||1);
 			adjustedAtk.speed+=atkProfile.assists[a].speed;
@@ -83,25 +96,17 @@ Player.prototype={
 		}
 
 		var chances=RPGMechanics.calcAtkChances.call(game,adjustedAtk,defProfile);
-		
-		var cooldowns;
-		var defCooldownHit=1000;
-		var atkCooldownMiss=1500;
-		var noCooldown=0;
 			
-		function addCoolDown(cd,profile,time){
-			cd.push({ name:profile.mob?"boss":profile.name, time:time });
-			for (var a in profile.assists) cd.push({name:a,time:time});
-			return cd;
-		}
-
-		if (defProfile.hp==0) {
-			this.applyCoolDown(addCoolDown([],atkProfile,noCooldown));
+		if (atkProfile.hp==0) {
+			// this.applyCoolDown(addCoolDown([],defProfile,noCooldown));
 			return;
-		} else if ( chances[this.state] && chances[this.state].result) {
-			re.eventKey=chances[this.state].eventKey;
-			re.chance=chances[this.state].chance;
-			cooldowns=addCoolDown([],atkProfile,atkCooldownMiss);
+		} else if (defProfile.hp==0) {
+			this.applyCoolDown(addCoolDown([],atkProfile,noCooldown,true));
+			return;
+		} else if ( chances[defProfile.state] && chances[defProfile.state].result) {
+			re.eventKey=chances[defProfile.state].eventKey;
+			re.chance=chances[defProfile.state].chance;
+			cooldowns=addCoolDown([],atkProfile,atkCooldownMiss,true);
 			cooldowns=addCoolDown(cooldowns,defProfile,noCooldown);
 		} else {
 			var dmg=adjustedAtk.patk;
@@ -117,19 +122,22 @@ Player.prototype={
 				if ( defProfile.armorEndurance==0 && defProfile.pdef>0 ){
 					re.eventKey='hitPdefDecrease';
 					defProfile.pdef--;
-					defProfile.armorEndurance=this.armorEndurance;
+					defProfile.armorEndurance=RPGMechanics.constants.ARMOR_ENDURANCE;
+					cooldowns=addCoolDown([],atkProfile,atkCooldownMiss/2,true);
+					cooldowns=addCoolDown(cooldowns,defProfile,defCooldownHit/2);
 				} else {
 					re.eventKey='hitBlocked';
 					if (RPGMechanics.rollDice("fightArmorEndure",armorEndureChance)) defProfile.armorEndurance--;
+					cooldowns=addCoolDown([],atkProfile,atkCooldownMiss,true);
+					cooldowns=addCoolDown(cooldowns,defProfile,noCooldown);
 				}
-				cooldowns=addCoolDown([],atkProfile,atkCooldownMiss*1.5);
-				cooldowns=addCoolDown(cooldowns,defProfile,atkCooldownMiss/2);
 			} else {
+				if (!defProfile.mob) game.totalHp--;
 				defProfile.hp--;
 				defProfile.wasHit=true;
 				re.dmg=dmg;
-				cooldowns=addCoolDown([],defProfile,defCooldownHit);
-				cooldowns=addCoolDown(cooldowns,atkProfile,noCooldown);
+				cooldowns=addCoolDown([],atkProfile,noCooldown,true);
+				cooldowns=addCoolDown(cooldowns,defProfile,defCooldownHit);
 			}
 		}
 		
@@ -151,8 +159,8 @@ Player.prototype={
 		}
 
 		if (resetCooldowns){
-			cooldowns=addCoolDown([],defProfile,noCooldown);
-			cooldowns=addCoolDown(cooldowns,atkProfile,noCooldown);
+			cooldowns=addCoolDown([],atkProfile,noCooldown,true);
+			cooldowns=addCoolDown(cooldowns,defProfile,noCooldown);
 		}
 
 		this.applyCoolDown(cooldowns);

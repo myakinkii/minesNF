@@ -1,40 +1,27 @@
-var Game=require('./Game.js');
-var Player=require('./Player.js');
+var RPGGame=require('./RPGGame');
+var Boss=require('./RPGBoss');
 var RPGMechanics=require("./RPGMechanics");
 
-function RPGGame(pars) {
-	Game.call(this, pars);
-	this.actors={};
-	for (var u in this.players) {
-		if(!this.profiles[u]) this.profiles[u]={};
-		this.actors[u]=new Player(this,this.profiles[u].equip||[]);
-	}
+function RPGCoopGame(pars) {
+	RPGGame.call(this, pars);
 	this.floor=1;
-	this.loot={};
 	this.recipes=[];
-	this.armorEndurance=1;
+	this.loot={};
 }
 
-RPGGame.prototype = new Game;
+RPGCoopGame.prototype = new RPGGame;
 
-RPGGame.prototype.onStartBoard = function () {
+RPGCoopGame.prototype.onStartBoard = function () {
 	this.voteFlee={};
 	this.voteAscend={};
 	this.voteDescend={};
-	if (!this.fledPreviousBattle){
-		this.livesLost=0;
-		this.livesTotal=0;
-		for (var u in this.players) {
-			this.profiles[u].livesLost=0;
-			this.livesTotal+=8;
-		}
-	}
+	if (!this.fledPreviousBattle) this.restoreLives();
 	this.lostCoords={};
 	this.digitPocket={};
 	this.bossLevel=1;
 };
 
-RPGGame.prototype.equipGear = function (e) {
+RPGCoopGame.prototype.equipGear = function (e) {
 	if (e.pars.length==0 || e.pars.length>8 ) return;
 	var user=this.actors[e.user];
 	
@@ -44,9 +31,7 @@ RPGGame.prototype.equipGear = function (e) {
 	this.emitEvent('client', e.user, 'system', 'Message','Equipped '+user.equip);
 };
 
-RPGGame.prototype.stealLoot = function (e) {
-	
-	var rpg=RPGMechanics;
+RPGCoopGame.prototype.stealLoot = function (e) {
 	
 	var userProfile=this.profiles[e.user],bossProfile=this.profiles.boss;
 	
@@ -64,7 +49,7 @@ RPGGame.prototype.stealLoot = function (e) {
 	if (userProfile.speed>bossProfile.speed) fasterRatio=Math.sqrt((userProfile.speed+1)/(bossProfile.speed+1));
 	
 	var spotChance=0.2*bossProfile.stealAttempts/fasterRatio;
-	if (rpg.rollDice("stealSpotted",spotChance)){
+	if (RPGMechanics.rollDice("stealSpotted",spotChance)){
 		bossProfile.spottedStealing=true;
 		bossProfile.patk=Math.ceil(1.3*(bossProfile.patk+1));
 		bossProfile.speed=Math.ceil(1.3*(bossProfile.speed+1));
@@ -76,8 +61,8 @@ RPGGame.prototype.stealLoot = function (e) {
 	}
 	
 	var stealChance=fasterRatio/bossProfile.level*Math.sqrt(bossProfile.stealAttempts)/8;
-	stealChance*=rpg.adjustLivesLost(userProfile);
-	if (rpg.rollDice("stealSucceed",stealChance)){
+	stealChance*=RPGMechanics.adjustLivesLost(userProfile);
+	if (RPGMechanics.rollDice("stealSucceed",stealChance)){
 		this.inBattle=false;
 		this.emitEvent('party', this.id, 'game', 'StealSucceeded',  { user:e.user,chance:stealChance } );
 		this.completeFloor({eventKey:'endBattleStole'});
@@ -87,13 +72,13 @@ RPGGame.prototype.stealLoot = function (e) {
 	}
 };
 
-RPGGame.prototype.cancelAction = function (e) {
+RPGCoopGame.prototype.cancelAction = function (e) {
 	if (!this.inBattle) return;
 	var user=this.actors[e.user];
 	if(user.profile.state!="cooldown") user.cancelAction();
 };
 
-RPGGame.prototype.assistAttack = function (e) {
+RPGCoopGame.prototype.assistAttack = function (e) {
 
 	if (!this.inBattle) return;
 	var user=this.actors[e.user], tgt=this.actors[e.pars[0]||"boss"];
@@ -108,7 +93,7 @@ RPGGame.prototype.assistAttack = function (e) {
 	if (user.profile.state=="active" && tgt.profile.state=="attack") user.addAssist(tgt);
 };
 
-RPGGame.prototype.hitTarget = function (e) {
+RPGCoopGame.prototype.hitTarget = function (e) {
 	
 	if (!this.inBattle) return;	
 	var user=this.actors[e.user],tgt=this.actors[e.pars[0]||"boss"];
@@ -123,18 +108,19 @@ RPGGame.prototype.hitTarget = function (e) {
 	user.startAttack(tgt);
 };
 
-RPGGame.prototype.resetFloor = function () {
+RPGCoopGame.prototype.resetFloor = function () {
+	this.fledPreviousBattle=false;
 	this.recipes=[];
 	this.loot={};
 	this.floor=1;
 };
 
-RPGGame.prototype.sendUserVote = function (user, eventKey) {
+RPGCoopGame.prototype.sendUserVote = function (user, eventKey) {
 	this.emitEvent('party', this.id, 'system', 'Message', user+'voted for '+eventKey);
 	this.emitEvent('party', this.id, 'game', 'GameUserVote', {user:user,eventKey:eventKey});
 };
 
-RPGGame.prototype.fleeBattle = function (e) {
+RPGCoopGame.prototype.fleeBattle = function (e) {
 	if (!this.inBattle || this.profiles.boss.spottedStealing) return;
 	this.voteFlee[e.user]=true;
 	this.sendUserVote(e.user,"battleFlee");
@@ -146,7 +132,7 @@ RPGGame.prototype.fleeBattle = function (e) {
 	}
 };
 
-RPGGame.prototype.ascendToFloor1 = function (e) {
+RPGCoopGame.prototype.ascendToFloor1 = function (e) {
 	if (!this.floorCompleted) return;
 	this.voteAscend[e.user]=true;
 	this.sendUserVote(e.user,"battleAscend");
@@ -158,7 +144,7 @@ RPGGame.prototype.ascendToFloor1 = function (e) {
 	}
 };
 
-RPGGame.prototype.descendToNextFloor = function (e) {
+RPGCoopGame.prototype.descendToNextFloor = function (e) {
 	if (!this.floorCompleted) return;
 	// this.voteDescend[e.user]=true;
 	this.sendUserVote(e.user,"battleDescend");
@@ -170,7 +156,7 @@ RPGGame.prototype.descendToNextFloor = function (e) {
 	}
 };
 
-RPGGame.prototype.completeFloor = function (e) {
+RPGCoopGame.prototype.completeFloor = function (e) {
 	this.floorCompleted=true;
 	for (var d in this.digitPocket){
 		if (!this.loot[d]) this.loot[d]=0;
@@ -187,7 +173,7 @@ RPGGame.prototype.completeFloor = function (e) {
 	this.emitEvent('party', this.id, 'game', 'CompleteFloor', e);
 };
 
-RPGGame.prototype.onResetBoard = function (e) {
+RPGCoopGame.prototype.onResetBoard = function (e) {
 	this.inBattle=false;
 	this.floorCompleted=false;
 	this.knowledgePresence=false;
@@ -195,12 +181,12 @@ RPGGame.prototype.onResetBoard = function (e) {
 	this.emitEvent('party', this.id, 'game', 'ShowResultLocal', e);
 };
 
-RPGGame.prototype.onCells = function (re) {
+RPGCoopGame.prototype.onCells = function (re) {
 	this.addCells(re.cells);
 	this.openCells(re.cells);
 };
 
-RPGGame.prototype.addCells = function (cells) {
+RPGCoopGame.prototype.addCells = function (cells) {
 	var i,n;
 	for (i in cells) {
 		n=cells[i];
@@ -212,21 +198,11 @@ RPGGame.prototype.addCells = function (cells) {
 	}
 };
 
-RPGGame.prototype.checkCell=function(e){
-	var x=parseInt(e.pars[0])||0;
-	var y=parseInt(e.pars[1])||0;
-	var re;
-	if ( !(x<1 || x>this.board.sizeX) && !(y<1 || y>this.board.sizeY) ){
-	  if (this.logStart==0) this.board.init(x,y,2);
-	  if (!this.pause && this.profiles[e.user].livesLost<8) re=this.board.checkCell(x,y,e.user);
-	}
-	if (re){
-	  this.logEvent(re);
-	  this['on'+re.flag].call(this,re);
-	}
-  };
+RPGCoopGame.prototype.canCheckCell=function(genericCheckResult,user){
+	return genericCheckResult && this.profiles[user].livesLost<8;
+};
 
-RPGGame.prototype.onBomb = function (re) {
+RPGCoopGame.prototype.onBomb = function (re) {
 	var coord=re.coords[0]+"_"+re.coords[1];
 	if (!this.lostCoords[coord]){
 		this.lostCoords[coord]=0;
@@ -242,9 +218,7 @@ RPGGame.prototype.onBomb = function (re) {
 	}
 	if (this.livesTotal==0){
 		this.openCells(this.board.mines);
-		re.lostBeforeBossBattle=true;
 		re.eventKey="endBattleLostAllLives";
-		// this.resetBoard(re);
 		re.floor=this.floor;
 		re.time=this.getGenericStat().time;
 		this.resetBoard(re);
@@ -255,7 +229,8 @@ RPGGame.prototype.onBomb = function (re) {
 	}
 };
 
-RPGGame.prototype.startBattle = function () {
+RPGCoopGame.prototype.startBattle = function () {
+	var rpg=RPGMechanics;
 	
 	this.inBattle=true;
 	
@@ -265,7 +240,7 @@ RPGGame.prototype.startBattle = function () {
 
 	for (var u in this.players){
 		var userProfile=this.actors[u].adjustProfile({
-			"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":this.armorEndurance,
+			"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":RPGMechanics.constants.ARMOR_ENDURANCE,
 			"level":8, "name":u, "state":"active", "livesLost":this.profiles[u].livesLost
 		});
 		if (this.fledPreviousBattle) userProfile.pdef=this.profiles[u].pdef;
@@ -277,11 +252,9 @@ RPGGame.prototype.startBattle = function () {
 	
 	for (var p in this.profiles) if (!this.players[p]) delete this.profiles[p];
 	
-	var rpg=RPGMechanics;
-	
-	this.actors.boss=new Player(this, rpg.genBossEquip(this.floor,this.bossLevel,this.bSize,stat) );
+	this.actors.boss=new Boss(this, RPGMechanics.genBossEquip(this.floor,this.bossLevel,this.bSize,stat) );
 	var bossProfile=this.actors.boss.adjustProfile({
-		"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":this.armorEndurance,
+		"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":RPGMechanics.constants.ARMOR_ENDURANCE,
 		"level":this.bossLevel, "mob":1, "state":"active"
 	});
 	
@@ -295,13 +268,13 @@ RPGGame.prototype.startBattle = function () {
 	var wiseFloors={small:3,medium:2,big:1};
 	if (this.fledPreviousBattle || this.floor<wiseFloors[this.bSize]) recipeChance=0;
 	this.fledPreviousBattle=false;
-	this.knowledgePresence=rpg.rollDice("recipeFind",recipeChance);
+	this.knowledgePresence=RPGMechanics.rollDice("recipeFind",recipeChance);
 
 	var names=['angry','hungry','greedy','grumpy'];
 	bossProfile.name=(this.knowledgePresence?'wise':names[Math.floor(names.length*Math.random())])+' Phoenix';
 	bossProfile.hp=bossProfile.level+bossProfile.maxhp;
 	this.profiles.boss=bossProfile;
-	bossProfile.bossRatio=rpg.calcFloorCompleteRatio(this.bossLevel,this.bSize,stat);
+	bossProfile.bossRatio=RPGMechanics.calcFloorCompleteRatio(this.bossLevel,this.bSize,stat);
 	
 	this.emitEvent('party', this.id, 'system', 'Message', 'Start Battle vs '+ bossProfile.name);
 	this.emitEvent('party', this.id, 'game', 'StartBattleLocal', {
@@ -310,11 +283,11 @@ RPGGame.prototype.startBattle = function () {
 	});
 };
 
-RPGGame.prototype.onComplete = function (re) {
+RPGCoopGame.prototype.onComplete = function (re) {
 	this.addCells(re.cells);
 	this.openCells(re.cells);
 	this.openCells(this.board.mines);
 	if (!this.inBattle) this.startBattle();
 };
 
-module.exports=RPGGame;
+module.exports=RPGCoopGame;

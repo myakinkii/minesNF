@@ -1,5 +1,9 @@
 var RPGMechanics={
 	
+	constants:{
+		ARMOR_ENDURANCE:1
+	},
+	
 	rollDice:function (effect,chance,log) {
 		var rnd=Math.random();
 		if(log) console.log(effect,chance,rnd); //some logging or processing later maybe
@@ -7,8 +11,13 @@ var RPGMechanics={
 	},
 	
 	adjustLivesLost:function(profile){
-		if (profile.mob) return 1;
+		if (profile.bossRatio) return 1;
 		return Math.sqrt((8-profile.livesLost)/9);
+	},
+	
+	adjustBossRatio:function(profile){
+		if (profile.bossRatio) return profile.bossRatio;
+		return 1;
 	},
 	
 	calcFloorCompleteRatio:function(bossLevel,bSize,stat){
@@ -21,12 +30,7 @@ var RPGMechanics={
 		ratio*=Math.sqrt(timeRatio);
 		return ratio;
 	},
-	
-	adjustBossRatio:function(profile){
-		if (profile.mob) return profile.bossRatio;
-		return 1;
-	},
-	
+
 	genBossEquip:function(floor,bossLevel,bSize,stat){
 		var equip=[];
 		var effects=["maxhp","patk","pdef","speed"];
