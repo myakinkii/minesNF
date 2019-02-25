@@ -32,6 +32,10 @@ RPGGame.prototype.equipGear = function (e) {
 	this.emitEvent('client', e.user, 'system', 'Message','Equipped '+user.equip);
 };
 
+RPGGame.prototype.assertNotBusyState=function(user){
+	if (["attack","cast","cooldown"].indexOf(user.profile.state)>-1) throw "busy";
+};
+
 RPGGame.prototype.assertActiveState=function(user){
 	if (user.profile.state!="active") throw "not active";
 };
@@ -105,7 +109,7 @@ RPGGame.prototype.hitTarget = function (e) {
 	var user=this.actors[e.user],tgt=this.actors[e.pars[0]||"boss"];
 	try {
 		this.assertAliveAndInBattle(user);
-		this.assertActiveState(user);
+		this.assertNotBusyState(user);
 		this.assertNotSelf(user,tgt);
 		if(tgt.profile.hp>0) user.startAttack(tgt);
 	} catch (e) {}
@@ -117,7 +121,7 @@ RPGGame.prototype.castSpell = function (e) {
 	try {
 		this.assertSpellExist(spell);
 		this.assertAliveAndInBattle(user);
-		this.assertActiveState(user);
+		this.assertNotBusyState(user);
 		if( user.profile.spells[spell]>0 && tgt.profile.hp>0) user.startCastSpell(spell,tgt);
 	} catch (e) {}
 };
