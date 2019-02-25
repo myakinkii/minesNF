@@ -1,7 +1,40 @@
 var RPGMechanics={
 	
 	constants:{
-		ARMOR_ENDURANCE:1
+		ARMOR_ENDURANCE:1,
+		AVOID_COOLDOWN_CHANCE:0.3,
+		BOSS_ATTACK_DELAY_TIME:1000,
+		ATTACK_TIME:2000,
+		CAST_TIME:1000,
+		NO_COOLDOWN_TIME:0,
+		COOLDOWN_HIT:1000,
+		COOLDOWN_MISS:1500
+	},
+
+	gems:[
+		{eft:"maxhp",rarity:1},
+		{eft:"patk",rarity:1},
+		{eft:"pdef",rarity:1},
+		{eft:"speed",rarity:1},
+		{eft:"strenghten",rarity:2},
+		{eft:"fortify",rarity:2},
+		{eft:"quicken",rarity:2},
+		{eft:"fatigue",rarity:3},
+		{eft:"weaken",rarity:3},
+		{eft:"slow",rarity:3},
+		{eft:"heal",rarity:4},
+		{eft:"lifesteal",rarity:4},
+	],
+
+	spells:{
+		strenghten:function(srcProfile,tgtProfile){ tgtProfile.patk--; },
+		fortify:function(srcProfile,tgtProfile){ tgtProfile.pdef++; },
+		quicken:function(srcProfile,tgtProfile){ tgtProfile.speed++; },
+		heal:function(srcProfile,tgtProfile){ tgtProfile.hp++; },
+		fatigue:function(srcProfile,tgtProfile){ tgtProfile.patk--; },
+		weaken:function(srcProfile,tgtProfile){ tgtProfile.pdef--; },
+		slow:function(srcProfile,tgtProfile){ tgtProfile.speed--; },
+		lifesteal:function(srcProfile,tgtProfile){ srcProfile.hp++; tgtProfile.hp--; }
 	},
 	
 	rollDice:function (effect,chance,log) {
@@ -33,7 +66,8 @@ var RPGMechanics={
 
 	genBossEquip:function(floor,bossLevel,bSize,stat){
 		var equip=[];
-		var effects=["maxhp","patk","pdef","speed"];
+		// var effects=["maxhp","patk","pdef","speed"];
+		var effects=this.gems.filter(function(g){ return g.rarity==1}).map(function(g){ return g.eft; });
 		var gemCount=floor;
 		while (gemCount>0) {
 			equip.push( "common_"+effects[Math.floor(Math.random()*4)] );

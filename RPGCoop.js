@@ -114,6 +114,8 @@ RPGCoopGame.prototype.completeFloor = function (e) {
 	e.loot=this.loot;
 	e.floor=this.floor;
 	var effects=["maxhp","patk","pdef","speed"];
+	var floorFilter=Math.ceil(this.floor/5);
+	var effects=RPGMechanics.gems.filter(function(g){ return g.rarity<=floorFilter }).map(function(g){ return g.eft; });
 	if (this.knowledgePresence && e.eventKey!='endBattleStole'){
 		var effect=effects[Math.floor(Math.random()*4)];
 		this.recipes.push(effect);
@@ -176,10 +178,7 @@ RPGCoopGame.prototype.startBattle = function () {
 	this.totalHp=0;
 
 	for (var u in this.players){
-		var userProfile=this.actors[u].adjustProfile({
-			"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":RPGMechanics.constants.ARMOR_ENDURANCE,
-			"level":8, "name":u, "state":"active", "livesLost":this.profiles[u].livesLost
-		});
+		var userProfile=this.actors[u].adjustProfile({ "level":8, "name":u, "livesLost":this.profiles[u].livesLost });
 		if (this.fledPreviousBattle) userProfile.pdef=this.profiles[u].pdef;
 		if (userProfile.livesLost<8) userProfile.hp=userProfile.level-userProfile.livesLost+userProfile.maxhp;
 		else userProfile.hp=0;
@@ -190,10 +189,7 @@ RPGCoopGame.prototype.startBattle = function () {
 	for (var p in this.profiles) if (!this.players[p]) delete this.profiles[p];
 	
 	this.actors.boss=new Boss(this, RPGMechanics.genBossEquip(this.floor,this.bossLevel,this.bSize,stat) );
-	var bossProfile=this.actors.boss.adjustProfile({
-		"maxhp":0,"patk":0,"pdef":0,"speed":0,"armorEndurance":RPGMechanics.constants.ARMOR_ENDURANCE,
-		"level":this.bossLevel, "mob":1, "state":"active"
-	});
+	var bossProfile=this.actors.boss.adjustProfile({ "level":this.bossLevel, "mob":1 });
 	
 	var recipeChance=0.1;
 	var wiseBosses={ 
@@ -239,6 +235,13 @@ RPGCoopGame.prototype.onResultHitTarget = function (re,atkProfile,defProfile) {
 		this.resetFloor();
 		
 	}
+};
+
+RPGCoopGame.prototype.onResultSpellCast = function (re,srcProfile,tgtProfile){
+	re.profiles=this.profiles;
+	re.source=srcProfile.name;
+	re.target=tgtProfile.name;
+	this.emitEvent('party', this.id, 'game', 'ResultCastSpell', re);
 };
 
 RPGCoopGame.prototype.onComplete = function (re) {

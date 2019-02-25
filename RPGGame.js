@@ -1,5 +1,6 @@
 var Game=require('./Game');
 var Player=require('./RPGPlayer');
+var RPGMechanics=require("./RPGMechanics");
 	
 function RPGGame(pars) {
 	Game.call(this, pars);
@@ -25,7 +26,7 @@ RPGGame.prototype.equipGear = function (e) {
 	if (e.pars.length==0 || e.pars.length>8 ) return;
 	var user=this.actors[e.user];
 	
-	if ( user.equip || this.inBattle ) return;
+	if ( user.equip.length>0 || this.inBattle ) return;
 		
 	user.equip=e.pars;
 	this.emitEvent('client', e.user, 'system', 'Message','Equipped '+user.equip);
@@ -41,6 +42,10 @@ RPGGame.prototype.assertNotCoolDown=function(user){
 
 RPGGame.prototype.assertNotSelf=function(user,tgt){
 	if (user.profile.name==tgt.profile.name) throw "self";
+};
+
+RPGGame.prototype.assertSpellExist=function(spell){
+	if (!RPGMechanics.spells[spell]) throw "spell not exist";
 };
 
 RPGGame.prototype.assertAliveAndInBattle=function(user){
@@ -81,8 +86,18 @@ RPGGame.prototype.assistAttack = function (e) {
 	var user=this.actors[e.user], tgt=this.actors[e.pars[0]||"boss"];
 	try {
 		this.assertAliveAndInBattle(user);
+		this.assertNotCoolDown(user);
 		this.assertNotSelf(user,tgt);
-		if (user.profile.state=="active" && tgt.profile.state=="attack") user.addAssist(tgt);
+		if (user.profile.state!="attack" && tgt.profile.state=="attack") user.addAssist(tgt);
+	} catch (e) {}
+};
+
+RPGGame.prototype.defendTarget = function (e) {
+	var user=this.actors[e.user], tgt=this.actors[e.pars[0]||"boss"];
+	try {
+		this.assertAliveAndInBattle(user);
+		this.assertNotSelf(user,tgt);
+		if (user.profile.state=="active" && !tgt.profile.mob) user.defendTarget(tgt);
 	} catch (e) {}
 };
 
@@ -93,6 +108,17 @@ RPGGame.prototype.hitTarget = function (e) {
 		this.assertActiveState(user);
 		this.assertNotSelf(user,tgt);
 		if(tgt.profile.hp>0) user.startAttack(tgt);
+	} catch (e) {}
+};
+
+RPGGame.prototype.castSpell = function (e) {
+	var user=this.actors[e.user],tgt=this.actors[e.pars[1]||e.user];
+	var spell=e.pars[0];
+	try {
+		this.assertSpellExist(spell);
+		this.assertAliveAndInBattle(user);
+		this.assertActiveState(user);
+		if( user.profile.spells[spell]>0 && tgt.profile.hp>0) user.startCastSpell(spell,tgt);
 	} catch (e) {}
 };
 

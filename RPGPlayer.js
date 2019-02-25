@@ -3,19 +3,26 @@ var RPGMechanics=require("./RPGMechanics");
 function Player(game,equip){
 	this.game=game;
 	this.equip=equip;
+	this.interruptableStates=["attack","cast"];
 }
 
 Player.prototype={
 	
 	adjustProfile:function(template){
 		var power={"common":1,"rare":2,"epic":3};
-		var effects={"maxhp":1,"patk":1,"pdef":1,"speed":1};
+		template=RPGMechanics.gems.reduce(function(prev,cur){ prev[cur.eft]=0; return prev; },template);
+		template.armorEndurance=RPGMechanics.constants.ARMOR_ENDURANCE;
+		template.state="active";
+		template.spells={};
+		template.equip=this.equip;
 		this.profile=this.equip.reduce(function(prev,cur){
-			var gem=cur.split("_");
-			if (effects[gem[1]] && power[gem[0]] )prev[gem[1]]+=power[gem[0]];
+			var gem=cur.split("_"),e=gem[1],p=gem[0];
+			if ( prev[e]>=0 && power[p] ) {
+				prev[e]+=power[p];
+				if(RPGMechanics.spells[e]) prev.spells[e]=prev[e];
+			}
 			return prev;
 		},template);
-		this.profile.equip=this.equip;
 		return this.profile;
 	},
 		
@@ -30,10 +37,10 @@ Player.prototype={
 	applyCoolDown:function(players){
 		var self=this;
 		var game=this.game;
-		var avoidCooldownChance=0.5;
 		players.forEach(function(p){
 			var profile=game.profiles[p.name];
-			if (p.time>0 && Math.random()>avoidCooldownChance ) {
+			var avoidCooldown=self.interruptableStates.indexOf(profile.state)>-1 && Math.random()<RPGMechanics.constants.AVOID_COOLDOWN_CHANCE;
+			if (p.time>0 && !avoidCooldown) {
 				if (game.actors[p.name].timer) {
 					clearTimeout(game.actors[p.name].timer);
 					game.actors[p.name].timer=null;
@@ -62,11 +69,17 @@ Player.prototype={
 		this.setState(this.profile,"assist",tgt.profile.name);
 	},
 
+	defendTarget:function(tgt){
+		var me=this.profile;
+		tgt.profile.defender=me.name;
+		this.setState(this.profile,"defend",tgt.profile.name);
+	},
+
 	startAttack:function(tgt){
 		var me=this.profile;
 		this.setState(me,"attack",tgt.profile.name);
 		if (tgt.onStartAttack) tgt.onStartAttack(me);
-		this.timer=setTimeout(function(){ tgt.onEndAttack(me); },1000);
+		this.timer=setTimeout(function(){ tgt.onEndAttack(me); },RPGMechanics.constants.ATTACK_TIME);
 	},
 
 	onEndAttack:function(atkProfile){
@@ -76,13 +89,15 @@ Player.prototype={
 			for (var a in profile.assists) cd.push({name:a,time:time, attacker:attacker});
 			return cd;
 		}
-		var cooldowns;
-		var defCooldownHit=1000;
-		var atkCooldownMiss=1500;
-		var noCooldown=0;
-		
+				
 		var game=this.game;
 		var defProfile=this.profile;
+		var defName=defProfile.defender;
+		if (defName) {
+			defProfile.defender=null;
+			defProfile=game.profiles[defName];
+		}
+		
 		var re={dmg:0,eventKey:'hitDamage'};
 		
 		var adjustedAtk={ 
@@ -95,24 +110,25 @@ Player.prototype={
 			adjustedAtk.livesLost+=atkProfile.assists[a].livesLost;
 		}
 
-		var chances=RPGMechanics.calcAtkChances.call(game,adjustedAtk,defProfile);
+		var chances=RPGMechanics.calcAtkChances(adjustedAtk,defProfile);
+		var cooldowns;
+		var defCooldown=RPGMechanics.constants.COOLDOWN_HIT;
 			
 		if (atkProfile.hp==0) {
-			// this.applyCoolDown(addCoolDown([],defProfile,noCooldown));
 			return;
 		} else if (defProfile.hp==0) {
-			this.applyCoolDown(addCoolDown([],atkProfile,noCooldown,true));
+			this.applyCoolDown(addCoolDown([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true));
 			return;
 		} else if ( chances[defProfile.state] && chances[defProfile.state].result) {
 			re.eventKey=chances[defProfile.state].eventKey;
 			re.chance=chances[defProfile.state].chance;
-			cooldowns=addCoolDown([],atkProfile,atkCooldownMiss,true);
-			cooldowns=addCoolDown(cooldowns,defProfile,noCooldown);
+			cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.COOLDOWN_MISS,true);
+			cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
 		} else {
 			var dmg=adjustedAtk.patk;
 			if (chances.crit.result) {
 				dmg*=2;
-				defCooldownHit*=2;
+				defCooldown*=2;
 				re.eventKey=chances.crit.eventKey;
 				re.chance=chances.crit.chance;
 			}
@@ -123,20 +139,20 @@ Player.prototype={
 					re.eventKey='hitPdefDecrease';
 					defProfile.pdef--;
 					defProfile.armorEndurance=RPGMechanics.constants.ARMOR_ENDURANCE;
-					cooldowns=addCoolDown([],atkProfile,atkCooldownMiss/2,true);
-					cooldowns=addCoolDown(cooldowns,defProfile,defCooldownHit/2);
+					cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.COOLDOWN_MISS/2,true);
+					cooldowns=addCoolDown(cooldowns,defProfile,defCooldown/2);
 				} else {
 					re.eventKey='hitBlocked';
 					if (RPGMechanics.rollDice("fightArmorEndure",armorEndureChance)) defProfile.armorEndurance--;
-					cooldowns=addCoolDown([],atkProfile,atkCooldownMiss,true);
-					cooldowns=addCoolDown(cooldowns,defProfile,noCooldown);
+					cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.COOLDOWN_MISS,true);
+					cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
 				}
 			} else {
 				defProfile.hp--;
 				defProfile.wasHit=true;
 				re.dmg=dmg;
-				cooldowns=addCoolDown([],atkProfile,noCooldown,true);
-				cooldowns=addCoolDown(cooldowns,defProfile,defCooldownHit);
+				cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true);
+				cooldowns=addCoolDown(cooldowns,defProfile,defCooldown);
 			}
 		}
 		
@@ -145,12 +161,34 @@ Player.prototype={
 		game.onResultHitTarget(re,atkProfile,defProfile);
 
 		if (!game.inBattle){
-			cooldowns=addCoolDown([],atkProfile,noCooldown,true);
-			cooldowns=addCoolDown(cooldowns,defProfile,noCooldown);
+			cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true);
+			cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
 		}
 
 		this.applyCoolDown(cooldowns);
+	},
+
+	startCastSpell:function(spell,tgt){
+		var me=this;
+		this.setState(me.profile,"cast",tgt.profile.name);
+		this.timer=setTimeout(function(){ me.onEndCastSpell(spell,tgt); },RPGMechanics.constants.CAST_TIME);
+	},
+
+	onEndCastSpell:function(spell,tgt){
+		var game=this.game;
+		var re={spell:spell,eventKey:'spellCast'};
+		var srcProfile=this.profile;
+		var tgtProfile=tgt?tgt.profile:srcProfile;
+		this.setState(srcProfile,"active");
+		if (this.profile.hp==0 || tgtProfile.hp==0) {
+			return;
+		} else {
+			srcProfile.spells[spell]--;
+			RPGMechanics.spells[spell](srcProfile,tgtProfile);
+		}
+		game.onResultSpellCast(re,srcProfile,tgtProfile);
 	}
+
 };
 
 module.exports=Player;
