@@ -5,7 +5,7 @@ var RPGMechanics=require("./RPGMechanics");
 function RPGCoopGame(pars) {
 	RPGGame.call(this, pars);
 	this.boardPars=pars.board;
-	this.boardDensityDelta={"s":1,"m":2,"b":4}[pars.bSize];
+	this.boardDensityDelta={"small":1,"medium":2,"big":4}[pars.board.bSize];
 	this.floor=1;
 	this.recipes=[];
 	this.loot={};
