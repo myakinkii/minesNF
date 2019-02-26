@@ -29,9 +29,13 @@ Boss.prototype.onState_active=function(isitme,profile){
 	if (!isitme) return;
 	var tgt=this.getRandomTarget();
 	var me=this;
+	// console.log("boss active");
 	if (tgt) setTimeout( function(){
-		if( me.profile.hp>0 && tgt.profile.hp>0 ) me.startAttack.call(me,tgt);
-	},RPGMechanics.constants.BOSS_ATTACK_DELAY_TIME);
+		if( me.profile.state!="cooldown" && me.profile.state!="attack" && me.profile.hp>0 && tgt.profile.hp>0 ) {
+			// console.log("boss will attack");
+			me.startAttack.call(me,tgt);
+		}
+	},RPGMechanics.constants.BOSS_ATTACK_DELAY_TIME );
 };
 
 Boss.prototype.onState_assist=function(isitme,profile,arg){
@@ -39,13 +43,36 @@ Boss.prototype.onState_assist=function(isitme,profile,arg){
 };	
 
 Boss.prototype.onStartAttack=function(atkProfile){
-	var me=this.profile;
-	if (me.state=="attack") return;
+	var me=this, tgt=this.game.actors[atkProfile.name];
+	// console.log("boss under attack",me.profile.name,me.profile.state);
+	if (me.profile.state=="cooldown") return;
 	var state=null;
-	if (me.speed>atkProfile.speed) state="evade";
-	else if (me.patk>atkProfile.patk) state="parry";
-	if (state) this.setState(me,state);
-	else this.startAttack(this.game.actors[atkProfile.name]);
+	if (me.profile.speed>atkProfile.speed) state="evade";
+	else if (me.profile.patk>atkProfile.patk) state="parry";
+	var willParryEvade=state && Math.random()<RPGMechanics.constants.BASIC_CHANCE*3/4;
+	var willNotCancelAttack=(me.profile.patk>=atkProfile.pdef) && Math.random()<RPGMechanics.constants.BASIC_CHANCE*3/4;
+	var willBlock = (atkProfile.patk<me.profile.pdef) && Math.random()<RPGMechanics.constants.BASIC_CHANCE*3/4;
+	if (willParryEvade) {
+		if (!me.timer){
+			// console.log("boss set state",state);
+			this.setState(me.profile,state);
+		} else if (!willNotCancelAttack) {
+			// console.log("boss clear my attack");
+			me.cancelAction();
+			// console.log("boss set state",state);
+			this.setState(me.profile,state);
+		}
+	} else { // block or attack
+		 if (willBlock) {
+			//  console.log("boss will block");
+			 if (me.timer) me.cancelAction();
+		} else setTimeout(function(){ 
+			if( me.profile.state!="cooldown" && me.profile.state!="attack" && me.profile.hp>0 && tgt.profile.hp>0 ) {
+				// console.log("boss will attack");
+				me.startAttack.call(me,tgt); 
+			}
+		}, RPGMechanics.constants.BOSS_ATTACK_DELAY_TIME/2 );
+	}
 };
 
 module.exports=Boss;

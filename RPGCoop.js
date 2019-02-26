@@ -4,6 +4,8 @@ var RPGMechanics=require("./RPGMechanics");
 
 function RPGCoopGame(pars) {
 	RPGGame.call(this, pars);
+	this.boardPars=pars.board;
+	this.boardDensityDelta={"s":1,"m":2,"b":4}[pars.bSize];
 	this.floor=1;
 	this.recipes=[];
 	this.loot={};
@@ -67,6 +69,7 @@ RPGCoopGame.prototype.resetFloor = function () {
 	this.recipes=[];
 	this.loot={};
 	this.floor=1;
+	this.board.bombs=this.boardPars.b;
 };
 
 RPGCoopGame.prototype.fleeBattle = function (e) {
@@ -101,6 +104,7 @@ RPGCoopGame.prototype.descendToNextFloor = function (e) {
 	// for (var p in this.players) if(!this.voteDescend[p]) voteDescendAccepted=false;
 	if (voteDescendAccepted) {
 		this.floor++;
+		this.board.bombs+=this.boardDensityDelta;
 		this.resetBoard({result:"continue",floor:this.floor,eventKey:'completeFloorDescend',user:e.user});
 	}
 };

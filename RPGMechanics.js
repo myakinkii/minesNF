@@ -2,10 +2,11 @@ var RPGMechanics={
 	
 	constants:{
 		ARMOR_ENDURANCE:1,
-		AVOID_COOLDOWN_CHANCE:0.3,
+		BASIC_CHANCE:0.3,
+		AVOID_INTERRUPT_CHANCE:0.3,
 		BOSS_ATTACK_DELAY_TIME:1000,
 		ATTACK_TIME:2000,
-		CAST_TIME:1000,
+		CAST_TIME:2000,
 		NO_COOLDOWN_TIME:0,
 		COOLDOWN_HIT:1000,
 		COOLDOWN_MISS:1500
@@ -81,8 +82,8 @@ var RPGMechanics={
 		var rpg=RPGMechanics;
 		
 		function evade(){
-			var evadeChance=0.2;
-			evadeChance+=0.1*(defProfile.speed-atkProfile.speed);
+			var evadeChance=rpg.constants.BASIC_CHANCE;
+			evadeChance+=0.05*(defProfile.speed-atkProfile.speed);
 			evadeChance*=rpg.adjustLivesLost(defProfile);
 			evadeChance*=rpg.adjustBossRatio(defProfile);
 			var re={ eventKey:'hitEvaded', chance:evadeChance, result:false};
@@ -90,8 +91,8 @@ var RPGMechanics={
 			return re;
 		}
 		function parry(){
-			var parryChance=0.2;
-			parryChance+=0.1*(defProfile.patk-atkProfile.patk);
+			var parryChance=rpg.constants.BASIC_CHANCE;
+			parryChance+=0.05*(defProfile.patk+1-atkProfile.patk); //cuz adjusted attack has +1 patk for free
 			parryChance*=rpg.adjustLivesLost(defProfile);
 			parryChance*=rpg.adjustBossRatio(defProfile);
 			var re={ eventKey:'hitParried', chance:parryChance, result:false};
@@ -99,7 +100,7 @@ var RPGMechanics={
 			return re;
 		}
 		function crit(){
-			var critChance=0.1;
+			var critChance=rpg.constants.BASIC_CHANCE/5;
 			critChance+=0.1*(atkProfile.speed-defProfile.speed);
 			critChance*=rpg.adjustLivesLost(atkProfile);
 			critChance*=rpg.adjustBossRatio(atkProfile);
