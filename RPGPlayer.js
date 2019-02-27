@@ -18,7 +18,10 @@ Player.prototype={
 			var gem=cur.split("_"),e=gem[1],p=gem[0];
 			if ( prev[e]>=0 && power[p] ) {
 				prev[e]+=power[p];
-				if(RPGMechanics.spells[e]) prev.spells[e]=prev[e];
+				if(RPGMechanics.spells[e]) {
+					prev.spells[e]={mp:prev[e],spell:e};
+					prev.haveSpells=true;
+				}
 			}
 			return prev;
 		},template);
@@ -224,7 +227,7 @@ Player.prototype={
 		if (this.profile.hp==0 || tgtProfile.hp==0) {
 			return;
 		} else {
-			srcProfile.spells[spell]--;
+			srcProfile.spells[spell].mp--;
 			RPGMechanics.spells[spell](srcProfile,tgtProfile);
 		}
 		game.onResultSpellCast(re,srcProfile,tgtProfile);

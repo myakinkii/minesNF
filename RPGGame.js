@@ -52,6 +52,11 @@ RPGGame.prototype.assertSpellExist=function(spell){
 	if (!RPGMechanics.spells[spell]) throw "spell not exist";
 };
 
+RPGGame.prototype.assertAliveTarget=function(tgt){
+	if (!tgt || !tgt.profile) throw "incorrect tgt";
+	if (tgt.profile.hp==0) throw "target dead";
+};
+
 RPGGame.prototype.assertAliveAndInBattle=function(user){
 	if (!this.inBattle) throw "not in battle";
 	if (user.profile.livesLost==8 || user.profile.hp==0) {
@@ -108,10 +113,11 @@ RPGGame.prototype.defendTarget = function (e) {
 RPGGame.prototype.hitTarget = function (e) {
 	var user=this.actors[e.user],tgt=this.actors[e.pars[0]||"boss"];
 	try {
+		this.assertAliveTarget(tgt);
 		this.assertAliveAndInBattle(user);
 		this.assertNotBusyState(user);
 		this.assertNotSelf(user,tgt);
-		if(tgt.profile.hp>0) user.startAttack(tgt);
+		user.startAttack(tgt);
 	} catch (e) {}
 };
 
@@ -119,10 +125,11 @@ RPGGame.prototype.castSpell = function (e) {
 	var user=this.actors[e.user],tgt=this.actors[e.pars[1]||e.user];
 	var spell=e.pars[0];
 	try {
+		this.assertAliveTarget(tgt);
 		this.assertSpellExist(spell);
 		this.assertAliveAndInBattle(user);
 		this.assertNotBusyState(user);
-		if( user.profile.spells[spell]>0 && tgt.profile.hp>0) user.startCastSpell(spell,tgt);
+		if( user.profile.spells[spell].mp>0 ) user.startCastSpell(spell,tgt);
 	} catch (e) {}
 };
 
