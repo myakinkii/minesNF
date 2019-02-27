@@ -83,7 +83,8 @@ Player.prototype={
 		this.setState(me,"attack",tgt.profile.name);
 		// console.log("startattack",me.name,tgt.profile.name);
 		if (tgt.onStartAttack) tgt.onStartAttack.call(tgt,me);
-		this.timer=setTimeout(function(){ tgt.onEndAttack.call(tgt,me); },RPGMechanics.constants.ATTACK_TIME);
+		var adjustedAttackTime=RPGMechanics.constants.ATTACK_TIME-(100*me.speed);
+		this.timer=setTimeout(function(){ tgt.onEndAttack.call(tgt,me); },adjustedAttackTime);
 	},
 
 	onEndAttack:function(atkProfile){
@@ -138,11 +139,11 @@ Player.prototype={
 			cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.COOLDOWN_MISS,true);
 			cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
 		} else if(getDamageButcontinue){
-			// console.log(defProfile.name,defProfile.state,"getDamageButcontinue -> atk active");
 			defProfile.hp--;
 			defProfile.wasHit=true;
 			re.dmg=adjustedAtk.patk;
 			cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true);
+			// console.log(defProfile.name,defProfile.state,defProfile.hp,"getDamageButcontinue -> atk active");
 		} else {
 			// console.log(defProfile.name,defProfile.state,"willBlock");
 			if (chances.crit.result) {
@@ -155,18 +156,18 @@ Player.prototype={
 			armorEndureChance+=0.1*(adjustedAtk.patk-defProfile.pdef);
 			if (adjustedAtk.patk<defProfile.pdef+1) {
 				if ( defProfile.armorEndurance==0 && defProfile.pdef>0 ){
-					// console.log(defProfile.name,defProfile.state,"hitPdefDecrease -> both cooldown");
 					re.eventKey='hitPdefDecrease';
 					defProfile.pdef--;
 					defProfile.armorEndurance=RPGMechanics.constants.ARMOR_ENDURANCE;
 					cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.COOLDOWN_MISS/2,true);
 					cooldowns=addCoolDown(cooldowns,defProfile,defCooldown/2);
+					// console.log(defProfile.name,defProfile.state,defProfile.pdef,re.eventKey," -> both cooldown");
 				} else {
-					// console.log(defProfile.name,defProfile.state,"hitBlocked -> atk cooldown");
 					re.eventKey='hitBlocked';
 					if (RPGMechanics.rollDice("fightArmorEndure",armorEndureChance)) defProfile.armorEndurance--;
 					cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.COOLDOWN_MISS,true);
 					if (!castOrattack) cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
+					// console.log(defProfile.name,defProfile.state,re.eventKey," -> atk cooldown");
 				}
 			} else {
 				// console.log(defProfile.name,defProfile.state,"wasHit -> def cooldown");
@@ -179,6 +180,7 @@ Player.prototype={
 		}
 		
 		atkProfile.assists=null;
+		if (game.actors.boss) game.actors.boss.underAttack=null;
 
 		game.onResultHitTarget(re,atkProfile,defProfile);
 

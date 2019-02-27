@@ -25,54 +25,114 @@ Boss.prototype.onState=function(profile,state,arg){
 	if (this['onState_'+state]) this['onState_'+state](isitme,profile,state,arg);
 };
 
+Boss.prototype.decideParryEvade=function(atkProfile){
+	if (!atkProfile) return null;
+	var me=this;
+	var state=null;
+	if (me.profile.speed>atkProfile.speed) state="evade";
+	else if (me.profile.patk>atkProfile.patk) state="parry";
+	// if (state) console.log("can ",state);
+	return state;
+};
+
+Boss.prototype.decideWillBlock=function(atkProfile){
+	if (!atkProfile) return false;
+	var me=this;
+	var willBlock = me.profile.pdef>atkProfile.patk;
+	return willBlock;
+};
+
+Boss.prototype.decideCancelAttack=function(atkProfile){
+	if (!atkProfile) return false;
+	return this.decideWillBlock(atkProfile) || this.decideParryEvade(atkProfile);
+};
+
+Boss.prototype.isUnderAttack=function(){
+	return this.underAttack;
+};
+
+Boss.prototype.isMeAliveAndActive=function(){
+	return this.profile.hp>0 && this.profile.state!="cooldown" && this.profile.state!="attack";
+};
+Boss.prototype.isTargetAlive=function(tgt){
+	return tgt.profile.hp>0;
+};
+
 Boss.prototype.onState_active=function(isitme,profile){
 	if (!isitme) return;
-	var tgt=this.getRandomTarget();
 	var me=this;
+	var atkProfile=me.isUnderAttack();
+	var state=this.decideParryEvade(atkProfile);
+	var willParryEvade=state && me.randomDecision(3/2);
+	var willBlock = me.decideWillBlock(atkProfile) && me.randomDecision(1);
 	// console.log("boss active");
-	if (tgt) setTimeout( function(){
-		if( me.profile.state!="cooldown" && me.profile.state!="attack" && me.profile.hp>0 && tgt.profile.hp>0 ) {
-			// console.log("boss will attack");
+	if (atkProfile){
+		// console.log("boss under attack",atkProfile.name);
+		if (willParryEvade) {
+			// console.log("boss will set state",state);
+			this.setState(me.profile,state);
+			return;
+		} else if (willBlock) {
+			// console.log("boss will block");
+			return;
+		}
+	}
+	var tgt=this.getRandomTarget();
+	if (tgt) me.waitAndAttack(tgt);
+};
+
+Boss.prototype.randomDecision=function(ratio){
+	return Math.random()<RPGMechanics.constants.BASIC_CHANCE*ratio;
+}
+
+Boss.prototype.waitAndAttack=function(tgt){
+	var me=this;
+	// console.log("boss will wait and attack");
+	setTimeout( function(){
+		if( me.isMeAliveAndActive() && !me.decideCancelAttack(me.isUnderAttack()) && me.isTargetAlive(tgt) ) {
+			// console.log("boss attacks");
 			me.startAttack.call(me,tgt);
 		}
-	},RPGMechanics.constants.BOSS_ATTACK_DELAY_TIME );
+	},RPGMechanics.constants.BOSS_ATTACK_DELAY_TIME);
+};
+
+Boss.prototype.onState_cooldown=function(isitme,profile,arg){
+	if (isitme ) return;
+	// console.log("found profile in cooldown",profile.name);
+	var me=this, tgt=this.game.actors[profile.name];
+	if ( me.isMeAliveAndActive() && !me.decideWillBlock(me.isUnderAttack()) ) me.waitAndAttack(tgt);
 };
 
 Boss.prototype.onState_assist=function(isitme,profile,arg){
 	console.log(profile.name,arg);
-};	
+};
 
 Boss.prototype.onStartAttack=function(atkProfile){
-	var me=this, tgt=this.game.actors[atkProfile.name];
-	// console.log("boss under attack",me.profile.name,me.profile.state);
+
+	var me=this, tgt=this.game.actors[atkProfile.name];	
+	// console.log(atkProfile.name,"started attack",me.profile.name,me.profile.state);
+	var wasUnderAttack=me.isUnderAttack();
+	if (wasUnderAttack) console.log("boss was already under attack",wasUnderAttack.name);
+	me.underAttack=atkProfile;
+	
 	if (me.profile.state=="cooldown") return;
-	var state=null;
-	if (me.profile.speed>atkProfile.speed) state="evade";
-	else if (me.profile.patk>atkProfile.patk) state="parry";
-	var willParryEvade=state && Math.random()<RPGMechanics.constants.BASIC_CHANCE*3/4;
-	var willNotCancelAttack=(me.profile.patk>=atkProfile.pdef) && Math.random()<RPGMechanics.constants.BASIC_CHANCE*3/4;
-	var willBlock = (atkProfile.patk<me.profile.pdef) && Math.random()<RPGMechanics.constants.BASIC_CHANCE*3/4;
-	if (willParryEvade) {
-		if (!me.timer){
-			// console.log("boss set state",state);
-			this.setState(me.profile,state);
-		} else if (!willNotCancelAttack) {
-			// console.log("boss clear my attack");
-			me.cancelAction();
-			// console.log("boss set state",state);
-			this.setState(me.profile,state);
+
+	var state=this.decideParryEvade(atkProfile);
+	var willParryEvade=state && me.randomDecision(1);
+	var willCancelAttack=me.decideCancelAttack(atkProfile) && me.randomDecision(1/3);
+	var willBlock = me.decideWillBlock(atkProfile) && me.randomDecision(3/2);
+
+	if (me.profile.state=="attack"){
+		if (willCancelAttack) {
+			// console.log("boss decided to cancel attack");
+			me.cancelAction(); // onState_active handler will do proper stuff when called later
 		}
-	} else { // block or attack
-		 if (willBlock) {
-			//  console.log("boss will block");
-			 if (me.timer) me.cancelAction();
-		} else setTimeout(function(){ 
-			if( me.profile.state!="cooldown" && me.profile.state!="attack" && me.profile.hp>0 && tgt.profile.hp>0 ) {
-				// console.log("boss will attack");
-				me.startAttack.call(me,tgt); 
-			}
-		}, RPGMechanics.constants.BOSS_ATTACK_DELAY_TIME/2 );
-	}
+	} else if (willBlock){
+		return;
+	} else if(willParryEvade) {
+		this.setState(me.profile,state);
+	} else me.waitAndAttack(tgt);
+
 };
 
 module.exports=Boss;
