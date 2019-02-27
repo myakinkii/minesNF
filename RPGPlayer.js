@@ -27,10 +27,25 @@ Player.prototype={
 		
 	setState:function(profile,state,arg){
 		if (profile.state==state) return;
+
+		var oldState=profile.state;
+		var oldTarget=this.game.profiles[profile.target]||this.game.profiles.boss;
+		if (oldState=='attack') {
+			oldTarget.attackers--;
+		}
+		if (oldState=='assist') {
+			delete oldTarget.assists[profile.name];
+		}
+		if (oldState=='defend') {
+			oldTarget.defender=null;
+		}
+		if (['assist','defend','attack'].indexOf(state)>-1) profile.target=arg;
+		else profile.target=null;
+
 		var game=this.game;
 		profile.state=state;
-		if(this.game.actors.boss) this.game.actors.boss.onState(profile,state,arg);
-		game.emitEvent('party', game.id, 'game', 'ChangeState', { profile:profile, user:profile.name, state:profile.state, val:arg });
+		if(game.actors.boss) game.actors.boss.onState(profile,state,arg);
+		game.emitEvent('party', game.id, 'game', 'ChangeState', { profiles:game.profiles, user:profile.name, state:state, val:arg });
 	},
 	
 	applyCoolDown:function(players){
@@ -81,6 +96,8 @@ Player.prototype={
 	startAttack:function(tgt){
 		var me=this.profile;
 		this.setState(me,"attack",tgt.profile.name);
+		if (!tgt.profile.attackers) tgt.profile.attackers=0;
+		tgt.profile.attackers++;
 		// console.log("startattack",me.name,tgt.profile.name);
 		if (tgt.onStartAttack) tgt.onStartAttack.call(tgt,me);
 		var adjustedAttackTime=RPGMechanics.constants.ATTACK_TIME-(100*me.speed);
