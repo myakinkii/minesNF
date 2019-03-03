@@ -12,6 +12,7 @@ Player.prototype={
 		template=RPGMechanics.gems.reduce(function(prev,cur){ prev[cur.eft]=0; return prev; },template);
 		template.armorEndurance=RPGMechanics.constants.ARMOR_ENDURANCE;
 		template.state="active";
+		template.attackers=0;
 		template.spells={};
 		template.equip=this.equip;
 		this.profile=this.equip.reduce(function(prev,cur){
@@ -98,9 +99,8 @@ Player.prototype={
 
 	startAttack:function(tgt){
 		var me=this.profile;
-		this.setState(me,"attack",tgt.profile.name);
-		if (!tgt.profile.attackers) tgt.profile.attackers=0;
 		tgt.profile.attackers++;
+		this.setState(me,"attack",tgt.profile.name);
 		// console.log("startattack",me.name,tgt.profile.name);
 		if (tgt.onStartAttack) tgt.onStartAttack.call(tgt,me);
 		var adjustedAttackTime=RPGMechanics.constants.ATTACK_TIME-(100*me.speed);
@@ -214,7 +214,8 @@ Player.prototype={
 
 	startCastSpell:function(spell,tgt){
 		var me=this;
-		this.setState(me.profile,"cast",tgt.profile.name);
+		if (tgt) me.profile.target=tgt;
+		this.setState(me.profile,"cast",spell);
 		this.timer=setTimeout(function(){ me.onEndCastSpell(spell,tgt); },RPGMechanics.constants.CAST_TIME);
 	},
 

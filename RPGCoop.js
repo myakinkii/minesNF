@@ -80,6 +80,7 @@ RPGCoopGame.prototype.fleeBattle = function (e) {
 	for (var p in this.players) if(!this.voteFlee[p]) voteFleeAccepted=false;
 	if (voteFleeAccepted) {
 		this.fledPreviousBattle=true;
+		if (this.actors.boss.timer) clearTimeout(this.actors.boss.timer);
 		this.resetBoard({eventKey:'endBattleFlee',result:"flee",floor:this.floor,lives:this.livesTotal});
 	}
 };
