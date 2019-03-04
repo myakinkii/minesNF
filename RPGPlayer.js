@@ -37,8 +37,8 @@ Player.prototype={
 		if (oldState=='attack') {
 			oldTarget.attackers--;
 		}
-		if (oldState=='assist') {
-			delete oldTarget.assists[profile.name];
+		if (oldState=='assist' ) {
+			if (oldTarget.assists && oldTarget.assists[profile.name]) delete oldTarget.assists[profile.name];
 		}
 		if (oldState=='defend') {
 			oldTarget.defender=null;
