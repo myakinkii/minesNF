@@ -6,6 +6,8 @@ var RPGVersusGame=require('./RPGVersus');
 
 module.exports.Board=require('./Board');
 
+module.exports.RPGMechanics=require('./RPGMechanics');
+
 module.exports.modes={
      rank:{constr:RankGame,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
      soloRPG:{constr:RPGCoopGame,s:{min:1,max:1},m:{min:1,max:1},b:{min:1,max:1}},
