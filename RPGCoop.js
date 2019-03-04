@@ -221,16 +221,8 @@ RPGCoopGame.prototype.startBattle = function () {
 	});
 };
 
-RPGCoopGame.prototype.onResultHitTarget = function (re,atkProfile,defProfile) {
-	
-	re.profiles=this.profiles;
-	re.attack=atkProfile.name;
-	re.defense=defProfile.name;
-
-	this.emitEvent('party', this.id, 'game', 'ResultHitTarget', re);
-	
+RPGCoopGame.prototype.checkBattleComplete = function (re,atkProfile,defProfile) {
 	if ( re.dmg && !defProfile.mob) this.totalHp--;
-			
 	if (defProfile.mob && defProfile.hp==0) {
 		this.inBattle=false;
 		this.completeFloor({eventKey:'endBattleWin'});
@@ -238,15 +230,7 @@ RPGCoopGame.prototype.onResultHitTarget = function (re,atkProfile,defProfile) {
 		this.inBattle=false;
 		this.resetBoard({eventKey:'endBattleLose', floor:this.floor});
 		this.resetFloor();
-		
 	}
-};
-
-RPGCoopGame.prototype.onResultSpellCast = function (re,srcProfile,tgtProfile){
-	re.profiles=this.profiles;
-	re.source=srcProfile.name;
-	re.target=tgtProfile.name;
-	this.emitEvent('party', this.id, 'game', 'ResultCastSpell', re);
 };
 
 RPGCoopGame.prototype.onComplete = function (re) {

@@ -60,10 +60,11 @@ Player.prototype={
 			if (p.time>0) {
 				if (game.actors[p.name].timer) {
 					clearTimeout(game.actors[p.name].timer);
-					game.actors[p.name].timer=null;
-					if (!p.attacker) game.emitEvent('party', game.id, 'game', 'BattleLogEntry', {
-						eventKey:'actionInterrupted', defense:profile.name
-					});
+					if (!p.attacker && profile.state!="cooldown") {
+						game.emitEvent( 'party', game.id, 'game', 'BattleLogEntry',
+							 { eventKey:'actionInterrupted', defense:profile.name }
+						);
+					}
 				}
 				// console.log("setCooldown "+p.time,profile.name);
 				self.setState.call(self,profile,"cooldown",p.time);
@@ -72,6 +73,7 @@ Player.prototype={
 				// console.log("setActive 0",profile.name);
 				self.setState.call(self,profile,"active");
 			}
+			game.actors[p.name].timer=null;
 		});
 	},
 

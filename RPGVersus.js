@@ -47,6 +47,7 @@ RPGVersusGame.prototype.startBattle = function () {
 			"level":8, "name":u, "state":"active", "livesLost":this.profiles[u].livesLost
 		});
 		userProfile.hp=userProfile.level-userProfile.livesLost+userProfile.maxhp;
+		if (userProfile.hp<1) userProfile.hp=1;
 		this.profiles[u]=userProfile;
 	}
 	
@@ -58,17 +59,15 @@ RPGVersusGame.prototype.startBattle = function () {
 	});
 };
 
-RPGVersusGame.prototype.onResultHitTarget = function (re,atkProfile,defProfile) {
-	
-	re.profiles=this.profiles;
-	re.attack=atkProfile.name;
-	re.defense=defProfile.name;
-
-	this.emitEvent('party', this.id, 'game', 'ResultHitTarget', re);
-
-	if (defProfile.hp==0){
-		this.resetBoard({eventKey:'endBattle', lost:defProfile.name, loot:this.digitPocket});
-	}
+RPGVersusGame.prototype.checkBattleComplete = function (re,atkProfile,defProfile) {
+	var lastStand=[];
+	for (var p in this.profiles) if (this.profiles[p].hp>0) lastStand.push(p);
+	if (lastStand.length==1) this.resetBoard({
+		eventKey:'endBattle', 
+		won:lastStand[0], 
+		loot:this.digitPocket,
+		stat:this.getGenericStat()
+	});
 };
 
 RPGVersusGame.prototype.onComplete = function (re) {

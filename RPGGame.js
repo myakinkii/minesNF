@@ -154,4 +154,20 @@ RPGGame.prototype.canCheckCell=function(genericCheckResult,user){
 	return genericCheckResult;
 };
 
+RPGGame.prototype.onResultHitTarget = function (re,atkProfile,defProfile) {
+	re.profiles=this.profiles;
+	re.attack=atkProfile.name;
+	re.defense=defProfile.name;
+	this.emitEvent('party', this.id, 'game', 'ResultHitTarget', re);
+	if (this.checkBattleComplete) this.checkBattleComplete(re,atkProfile,defProfile);
+};
+
+RPGGame.prototype.onResultSpellCast = function (re,srcProfile,tgtProfile){
+	re.profiles=this.profiles;
+	re.source=srcProfile.name;
+	re.target=tgtProfile.name;
+	this.emitEvent('party', this.id, 'game', 'ResultCastSpell', re);
+	if (this.checkBattleComplete) this.checkBattleComplete(re,srcProfile,tgtProfile);
+};
+
 module.exports=RPGGame;
