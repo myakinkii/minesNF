@@ -152,22 +152,23 @@ Player.prototype={
 		var defCooldown=RPGMechanics.constants.COOLDOWN_HIT;
 
 		var re={dmg:0,eventKey:'hitDamage'};
-		var willBlock=true;
+		var willBlock=false;
 		if (parryEvadeSuccess) {
 			// console.log(defProfile.name,defProfile.state,"parryEvadeSuccess -> atk cooldown");
-			willBlock=false;
 			re.eventKey=chances[defProfile.state].eventKey;
 			re.chance=chances[defProfile.state].chance;
 			cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.COOLDOWN_MISS,true);
 			cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
 		} else if(getDamageButcontinue){
-			willBlock=false;
 			defProfile.hp--;
 			defProfile.wasHit=true;
 			re.dmg=adjustedAtk.patk;
 			cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true);
 			// console.log(defProfile.name,defProfile.state,defProfile.hp,"getDamageButcontinue -> atk active");
+		} else {
+			willBlock=true;
 		}
+
 		if (willBlock){
 			// console.log(defProfile.name,defProfile.state,"willBlock");
 			if (chances.crit.result) {
