@@ -70,12 +70,12 @@ Boss.prototype.onState_active=function(isitme,profile){
 	// console.log("boss active");
 	if (atkProfile){
 		// console.log("boss under attack",atkProfile.name);
-		if (willParryEvade) {
+		if (willBlock) {
+			// console.log("boss will block");
+			return;
+		} else if (willParryEvade) {
 			// console.log("boss will set state",state);
 			this.setState(me.profile,state);
-			return;
-		} else if (willBlock) {
-			// console.log("boss will block");
 			return;
 		}
 	}
