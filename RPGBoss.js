@@ -29,8 +29,10 @@ Boss.prototype.decideParryEvade=function(atkProfile){
 	if (!atkProfile) return null;
 	var me=this;
 	var state=null;
-	if (me.profile.speed>atkProfile.speed) state="evade";
-	else if (me.profile.patk>atkProfile.patk) state="parry";
+	var deltaEvade=me.profile.speed>atkProfile.speed;
+	var deltaParry=me.profile.patk-atkProfile.patk;
+	if (deltaEvade>0) state="evade";
+	if (deltaParry>deltaEvade) state="parry";
 	// if (state) console.log("can ",state);
 	return state;
 };

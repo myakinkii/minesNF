@@ -118,11 +118,10 @@ RPGCoopGame.prototype.completeFloor = function (e) {
 	}
 	e.loot=this.loot;
 	e.floor=this.floor;
-	var effects=["maxhp","patk","pdef","speed"];
 	var floorFilter=Math.ceil(this.floor/5);
 	var effects=RPGMechanics.gems.filter(function(g){ return g.rarity<=floorFilter }).map(function(g){ return g.eft; });
 	if (this.knowledgePresence && e.eventKey!='endBattleStole'){
-		var effect=effects[Math.floor(Math.random()*4)];
+		var effect=effects[Math.floor(Math.random()*effects.length)];
 		this.recipes.push(effect);
 		e.effect=effect;
 	}
