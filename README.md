@@ -6,6 +6,12 @@ ios repo here: https://github.com/myakinkii/minesNF_ios
 * refactor tcp code
 * fix tcp socket error
 
+## v1.0
+* removed legacy nowjs deps
+* hid db support - only anonymous users for now
+* hid legacy web client - to be used only with ui5 client
+* hid tcp server - ws only
+
 ## v0.2
 * added tcp for ios client
 
