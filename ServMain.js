@@ -73,6 +73,6 @@ server.on('event',function(e){
 	if (e.dst=='everyone') for (var name in server.connections) sendEvent(name,e);
 });
 
-var PORT=process.env.PORT||8080;
+var PORT=process.env.HTTPPORT||process.env.PORT||8080; // process.env.PORT for hana xsa
 httpServ.listen(PORT);
 console.log('\nserver started on port '+PORT+' in',singleThread?'single':'muliti','thread mode');
