@@ -65,6 +65,10 @@ RPGGame.prototype.assertAliveAndInBattle=function(user){
 	}	
 };
 
+RPGGame.prototype.assertEnoughAP=function(user,action){
+	if (user.profile.curAP < RPGMechanics.actionCostAP[action]) throw "not enough AP";
+};
+
 RPGGame.prototype.cancelAction = function (e) {
 	var user=this.actors[e.user];
 	try {
@@ -97,6 +101,7 @@ RPGGame.prototype.assistAttack = function (e) {
 		this.assertAliveAndInBattle(user);
 		this.assertNotCoolDown(user);
 		this.assertNotSelf(user,tgt);
+		this.assertEnoughAP(user,"assist");
 		if (user.profile.state!="attack" && tgt.profile.state=="attack") user.addAssist(tgt);
 	} catch (e) {}
 };
@@ -106,6 +111,7 @@ RPGGame.prototype.defendTarget = function (e) {
 	try {
 		this.assertAliveAndInBattle(user);
 		this.assertNotSelf(user,tgt);
+		this.assertEnoughAP(user,"defend");
 		if (user.profile.state=="active" && !tgt.profile.mob) user.defendTarget(tgt);
 	} catch (e) {}
 };
@@ -117,6 +123,7 @@ RPGGame.prototype.hitTarget = function (e) {
 		this.assertAliveAndInBattle(user);
 		this.assertNotBusyState(user);
 		this.assertNotSelf(user,tgt);
+		this.assertEnoughAP(user,"hit");
 		user.startAttack(tgt);
 	} catch (e) {}
 };

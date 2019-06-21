@@ -9,7 +9,19 @@ var RPGMechanics={
 		CAST_TIME:1500,
 		NO_COOLDOWN_TIME:0,
 		COOLDOWN_HIT:1000,
-		COOLDOWN_MISS:1500
+		COOLDOWN_MISS:1500,
+		AP_HIT_COST:1,
+		AP_MISS_COST:1,
+		AP_ATTACK_COST:2,
+		AP_PARRY_EVADE_COST:1
+	},
+	
+	actionCostAP:{
+		hit:2,
+		assist:2,
+		defend:2,
+		parry:1,
+		evade:1
 	},
 
 	gems:[

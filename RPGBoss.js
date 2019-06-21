@@ -20,9 +20,31 @@ Boss.prototype.getRandomTarget=function(){
 	return this.game.actors[random];
 };
 
+Boss.prototype.onChangeAP=function(profile){
+	var isitme=(profile.name==this.profile.name);
+	if (!isitme) return;
+	var me=this;
+	var tgt=me.getRandomTarget();
+	if (tgt && me.isMeAliveAndActive() && me.isTargetAlive(tgt) ) {
+		if (me.profile.curAP>=RPGMechanics.actionCostAP.hit) me.startAttack.call(me,tgt);
+	}
+};
+
+Boss.prototype.onAttackStarted=function(atkProfile){
+	var isitme=(atkProfile.name==this.profile.name);
+	if (isitme) return;
+	// console.log(atkProfile.name+" started attack on boss");
+};
+Boss.prototype.onAttackEnded=function(atkProfile){
+	var isitme=(atkProfile.name==this.profile.name);
+	if (isitme) return;
+	// console.log(atkProfile.name+" ended attack on boss");
+};
+
 Boss.prototype.onState=function(profile,state,arg){
 	var isitme=(profile.name==this.profile.name);
-	if (this['onState_'+state]) this['onState_'+state](isitme,profile,state,arg);
+	// if (isitme) console.log("boss state: "+profile.state);
+	// if (this['onState_'+state]) this['onState_'+state](isitme,profile,state,arg);
 };
 
 Boss.prototype.decideParryEvade=function(atkProfile){
