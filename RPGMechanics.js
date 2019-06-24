@@ -6,7 +6,7 @@ var RPGMechanics={
 		AVOID_INTERRUPT_CHANCE:0.6,
 		BOSS_ATTACK_DELAY_TIME:1000,
 		ATTACK_TIME:1500,
-		CAST_TIME:1500,
+		CAST_TIME:2000,
 		NO_COOLDOWN_TIME:0,
 		COOLDOWN_HIT:1000,
 		COOLDOWN_MISS:1500,
@@ -25,29 +25,30 @@ var RPGMechanics={
 	},
 
 	gems:[
+		{eft:"mana",rarity:0},
 		{eft:"maxhp",rarity:1},
 		{eft:"patk",rarity:1},
 		{eft:"pdef",rarity:1},
 		{eft:"speed",rarity:1},
-		{eft:"patkinc",rarity:2},
-		{eft:"pdefinc",rarity:2},
-		{eft:"speedinc",rarity:2},
-		{eft:"patkdec",rarity:3},
-		{eft:"pdefdec",rarity:3},
-		{eft:"speeddec",rarity:3},
-		{eft:"heal",rarity:4},
-		{eft:"lifesteal",rarity:4},
+		// {eft:"patkinc",rarity:2},
+		// {eft:"pdefinc",rarity:2},
+		// {eft:"speedinc",rarity:2},
+		// {eft:"patkdec",rarity:3},
+		// {eft:"pdefdec",rarity:3},
+		// {eft:"speeddec",rarity:3},
+		// {eft:"heal",rarity:4},
+		// {eft:"lifesteal",rarity:4},
 	],
 
 	spells:{
 		patkinc:function(srcProfile,tgtProfile){ tgtProfile.patk++; },
 		pdefinc:function(srcProfile,tgtProfile){ tgtProfile.pdef++; },
 		speedinc:function(srcProfile,tgtProfile){ tgtProfile.speed++; },
-		patkdec:function(srcProfile,tgtProfile){ tgtProfile.patk--; },
-		pdefdec:function(srcProfile,tgtProfile){ tgtProfile.pdef--; },
-		speeddec:function(srcProfile,tgtProfile){ tgtProfile.speed--; },
-		heal:function(srcProfile,tgtProfile){ tgtProfile.hp++; },
-		lifesteal:function(srcProfile,tgtProfile){ srcProfile.hp++; tgtProfile.hp--; }
+		patkdec:function(srcProfile,tgtProfile){ if (tgtProfile.patk>0) tgtProfile.patk--; },
+		pdefdec:function(srcProfile,tgtProfile){ if (tgtProfile.pdef>0) tgtProfile.pdef--; },
+		speeddec:function(srcProfile,tgtProfile){ if (tgtProfile.speed>0) tgtProfile.speed--; },
+		// heal:function(srcProfile,tgtProfile){ tgtProfile.hp++; },
+		// lifesteal:function(srcProfile,tgtProfile){ srcProfile.hp++; tgtProfile.hp--; }
 	},
 	
 	rollDice:function (effect,chance,log) {

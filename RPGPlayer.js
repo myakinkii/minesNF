@@ -23,10 +23,10 @@ Player.prototype={
 			var gem=cur.split("_"),e=gem[1],p=gem[0];
 			if ( prev[e]>=0 && power[p] ) {
 				prev[e]+=power[p];
-				if(RPGMechanics.spells[e]) {
-					prev.spells[e]={mp:prev[e],spell:e};
-					prev.haveSpells=true;
-				}
+				// if(RPGMechanics.spells[e]) {
+				// 	prev.spells[e]={mp:prev[e],spell:e};
+				// 	prev.haveSpells=true;
+				// }
 			}
 			return prev;
 		},template);
@@ -70,32 +70,14 @@ Player.prototype={
 				profile.curAP-=p.time;
 				game.emitEvent('party', game.id, 'game', 'ChangePlayerAP', { profiles:game.profiles, user:profile.name, curAP:profile.curAP });
 			}
-			self.setState.call(self,profile,"active");
-			game.actors[p.name].timer=null;
-		});
-	},
-	
-	_applyCoolDown:function(players){
-		var self=this;
-		var game=this.game;
-		players.forEach(function(p){
-			var profile=game.profiles[p.name];
-			if (p.time>0) {
-				if (game.actors[p.name].timer) {
-					clearTimeout(game.actors[p.name].timer);
-					if (!p.attacker && profile.state!="cooldown") {
-						game.emitEvent( 'party', game.id, 'game', 'BattleLogEntry',
-							 { eventKey:'actionInterrupted', defense:profile.name }
-						);
-					}
-				}
-				// console.log("setCooldown "+p.time,profile.name);
-				self.setState.call(self,profile,"cooldown",p.time);
-				game.actors[p.name].timer=setTimeout(function(){ self.setState.call(self,profile,"active"); }, p.time);
-			} else {
-				// console.log("setActive 0",profile.name);
-				self.setState.call(self,profile,"active");
+			if (!p.attacker && game.actors[p.name].timer){
+				if (profile.state!="cast" || Math.random()<RPGMechanics.constants.AVOID_INTERRUPT_CHANCE) return;
+				clearTimeout(game.actors[p.name].timer);
+				game.emitEvent( 'party', game.id, 'game', 'BattleLogEntry',
+					{ eventKey:'actionInterrupted', defense:profile.name }
+				);
 			}
+			self.setState.call(self,profile,"active");
 			game.actors[p.name].timer=null;
 		});
 	},
@@ -256,7 +238,8 @@ Player.prototype={
 		if (this.profile.hp==0 || tgtProfile.hp==0) {
 			return;
 		} else {
-			srcProfile.spells[spell].mp--;
+			srcProfile.mana--;
+			// srcProfile.spells[spell].mp--;
 			RPGMechanics.spells[spell](srcProfile,tgtProfile);
 		}
 		game.onResultSpellCast(re,srcProfile,tgtProfile);

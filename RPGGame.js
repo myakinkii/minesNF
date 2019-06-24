@@ -136,7 +136,8 @@ RPGGame.prototype.castSpell = function (e) {
 		this.assertSpellExist(spell);
 		this.assertAliveAndInBattle(user);
 		this.assertNotBusyState(user);
-		if( user.profile.spells[spell].mp>0 ) user.startCastSpell(spell,tgt);
+		if( user.profile.mana>0 ) user.startCastSpell(spell,tgt);
+		// if( user.profile.spells[spell].mp>0 ) user.startCastSpell(spell,tgt);
 	} catch (e) {}
 };
 
