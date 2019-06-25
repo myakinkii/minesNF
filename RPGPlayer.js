@@ -16,9 +16,6 @@ Player.prototype={
 		template.spells={};
 		template.equip=this.equip;
 		
-		template.curAP=0;
-		template.maxAP= 3 + (template.patk<12 ? Math.floor(template.patk/4) : 3);
-
 		this.profile=this.equip.reduce(function(prev,cur){
 			var gem=cur.split("_"),e=gem[1],p=gem[0];
 			if ( prev[e]>=0 && power[p] ) {
@@ -31,11 +28,27 @@ Player.prototype={
 			return prev;
 		},template);
 		
-		var self=this;
-		if (this.apTimer) clearInterval(this.apTimer);
-		this.apTimer=setInterval(function(){ self.onChangeAPTimer.call(self); },2000);
+		var profile=this.profile, game=this.game, self=this; 
+		this.refreshApStats(profile);
+		function apTickFn(){
+			if (self.apTimer) self.apTimer=setTimeout(apTickFn,self.apTick);
+			if (profile.curAP==profile.maxAP) return;
+			profile.curAP++;
+			if(game.actors.boss) game.actors.boss.onChangeAP(profile);
+			game.emitEvent('party', game.id, 'game', 'ChangePlayerAP', { 
+				profiles:game.profiles, user:profile.name, curAP:profile.curAP 
+			});
+		}
+		if (this.apTimer) clearTimeout(this.apTimer);
+		this.apTimer=setTimeout(apTickFn,this.apTick);
 		
 		return this.profile;
+	},
+
+	refreshApStats:function(profile){
+		this.apTick=RPGMechanics.constants.AP_TICK-250*(profile.speed<12 ? Math.floor(profile.speed/3) : 4);
+		this.profile.maxAP=3 + (profile.patk<12 ? Math.floor(profile.patk/4) : 3);
+		this.profile.curAP=profile.curAP||0;
 	},
 		
 	setState:function(profile,state,arg){
@@ -241,19 +254,12 @@ Player.prototype={
 			srcProfile.mana--;
 			// srcProfile.spells[spell].mp--;
 			RPGMechanics.spells[spell](srcProfile,tgtProfile);
+			if (tgt) tgt.refreshApStats.call(tgt,tgtProfile);
+			else this.refreshApStats(tgtProfile);
 		}
 		game.onResultSpellCast(re,srcProfile,tgtProfile);
-	},
-	
-	onChangeAPTimer:function(){
-		var srcProfile=this.profile;
-		if (srcProfile.curAP==srcProfile.maxAP) return;
-		srcProfile.curAP++;
-		var game=this.game;
-		if(game.actors.boss) game.actors.boss.onChangeAP(srcProfile);
-		game.emitEvent('party', game.id, 'game', 'ChangePlayerAP', { profiles:game.profiles, user:srcProfile.name, curAP:srcProfile.curAP });
 	}
-
+	
 };
 
 module.exports=Player;

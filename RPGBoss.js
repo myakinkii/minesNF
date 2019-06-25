@@ -8,6 +8,54 @@ function Boss(game,equip){
 
 Boss.prototype = new Player;
 
+Boss.prototype.onChangeAP=function(profile){
+	var isitme=(profile.name==this.profile.name);
+	if (!isitme) return;
+	this.doSomething(this,this.getRandomTarget());
+};
+
+Boss.prototype.onAttackStarted=function(atkProfile){
+	var isitme=(atkProfile.name==this.profile.name);
+	if (isitme) return;
+	
+	var me=this, tgt=this.game.actors[atkProfile.name];
+	var wasUnderAttack=me.isUnderAttack();
+	me.underAttack=atkProfile;
+	me.doSomething(me,tgt,wasUnderAttack);
+};
+
+Boss.prototype.onAttackEnded=function(atkProfile){
+	var isitme=(atkProfile.name==this.profile.name);
+	
+	if (isitme) {
+		this.doSomething(this,this.getRandomTarget());
+		return;
+	}
+	
+	var me=this, tgt=this.game.actors[me.underAttack.name];
+	if (tgt.profile.name!=atkProfile.name) {
+		this.doSomething(this,tgt);
+	} else me.underAttack=null;
+};
+
+Boss.prototype.doSomething=function(me,tgt,wasUnderAttack){
+	
+	if (!tgt) return;
+	if (!me.isMeAliveAndActive()) return;
+	if (wasUnderAttack && me.profile.state=="active") return; //decided to block previous attack
+	
+	var state = tgt.profile.state=="attack" && me.decideParryEvade(tgt.profile);
+	var willParryEvade = state && me.profile.curAP>=RPGMechanics.actionCostAP[state] && me.randomDecision(1);
+	var willBlock = tgt.profile.state=="attack" && me.decideWillBlock(tgt.profile);
+	var canAttack = me.isTargetAlive(tgt) && me.profile.curAP>=RPGMechanics.actionCostAP["hit"];
+	
+	if (willBlock){
+		return;
+	} else if (willParryEvade) {
+		me.setState(me.profile,state);
+	} else if (canAttack) me.startAttack(tgt);
+};
+
 Boss.prototype.getTargets=function(){
 	var targets=[];
 	for (var p in this.game.profiles) if (!this.game.profiles[p].mob && this.game.profiles[p].hp>0) targets.push(p);
@@ -18,33 +66,6 @@ Boss.prototype.getRandomTarget=function(){
 	var targets=this.getTargets();
 	var random=targets[Math.floor(Math.random()*targets.length)];
 	return this.game.actors[random];
-};
-
-Boss.prototype.onChangeAP=function(profile){
-	var isitme=(profile.name==this.profile.name);
-	if (!isitme) return;
-	var me=this;
-	var tgt=me.getRandomTarget();
-	if (tgt && me.isMeAliveAndActive() && me.isTargetAlive(tgt) ) {
-		if (me.profile.curAP>=RPGMechanics.actionCostAP.hit) me.startAttack.call(me,tgt);
-	}
-};
-
-Boss.prototype.onAttackStarted=function(atkProfile){
-	var isitme=(atkProfile.name==this.profile.name);
-	if (isitme) return;
-	// console.log(atkProfile.name+" started attack on boss");
-};
-Boss.prototype.onAttackEnded=function(atkProfile){
-	var isitme=(atkProfile.name==this.profile.name);
-	if (isitme) return;
-	// console.log(atkProfile.name+" ended attack on boss");
-};
-
-Boss.prototype.onState=function(profile,state,arg){
-	var isitme=(profile.name==this.profile.name);
-	// if (isitme) console.log("boss state: "+profile.state);
-	// if (this['onState_'+state]) this['onState_'+state](isitme,profile,state,arg);
 };
 
 Boss.prototype.decideParryEvade=function(atkProfile){
@@ -71,6 +92,10 @@ Boss.prototype.decideCancelAttack=function(atkProfile){
 	return this.decideWillBlock(atkProfile) || this.decideParryEvade(atkProfile);
 };
 
+Boss.prototype.randomDecision=function(ratio){
+	return Math.random()<RPGMechanics.constants.BASIC_CHANCE*ratio;
+}
+
 Boss.prototype.isUnderAttack=function(){
 	return this.underAttack;
 };
@@ -78,10 +103,16 @@ Boss.prototype.isUnderAttack=function(){
 Boss.prototype.isMeAliveAndActive=function(){
 	return this.profile.hp>0 && this.profile.state!="cooldown" && this.profile.state!="attack";
 };
+
 Boss.prototype.isTargetAlive=function(tgt){
 	return tgt.profile.hp>0;
 };
 
+Boss.prototype.onState=function(profile,state,arg){
+	var isitme=(profile.name==this.profile.name);
+	if (this['onState_'+state]) this['onState_'+state](isitme,profile,state,arg);
+};
+/*
 Boss.prototype.onState_active=function(isitme,profile){
 	if (!isitme) return;
 	var me=this;
@@ -105,9 +136,16 @@ Boss.prototype.onState_active=function(isitme,profile){
 	if (tgt) me.waitAndAttack(tgt);
 };
 
-Boss.prototype.randomDecision=function(ratio){
-	return Math.random()<RPGMechanics.constants.BASIC_CHANCE*ratio;
-}
+Boss.prototype.onState_cooldown=function(isitme,profile,arg){
+	if (isitme ) return;
+	// console.log("found profile in cooldown",profile.name);
+	var me=this, tgt=this.game.actors[profile.name];
+	if ( me.isMeAliveAndActive() && !me.decideWillBlock(me.isUnderAttack()) ) me.waitAndAttack(tgt);
+};
+
+Boss.prototype.onState_assist=function(isitme,profile,arg){
+	console.log(profile.name,arg);
+};
 
 Boss.prototype.waitAndAttack=function(tgt){
 	var me=this;
@@ -118,17 +156,6 @@ Boss.prototype.waitAndAttack=function(tgt){
 			me.startAttack.call(me,tgt);
 		}
 	},RPGMechanics.constants.BOSS_ATTACK_DELAY_TIME);
-};
-
-Boss.prototype.onState_cooldown=function(isitme,profile,arg){
-	if (isitme ) return;
-	// console.log("found profile in cooldown",profile.name);
-	var me=this, tgt=this.game.actors[profile.name];
-	if ( me.isMeAliveAndActive() && !me.decideWillBlock(me.isUnderAttack()) ) me.waitAndAttack(tgt);
-};
-
-Boss.prototype.onState_assist=function(isitme,profile,arg){
-	console.log(profile.name,arg);
 };
 
 Boss.prototype.onStartAttack=function(atkProfile){
@@ -156,7 +183,7 @@ Boss.prototype.onStartAttack=function(atkProfile){
 	} else if(willParryEvade) {
 		this.setState(me.profile,state);
 	} else me.waitAndAttack(tgt);
-
+	
 };
-
+*/
 module.exports=Boss;
