@@ -11,6 +11,7 @@ RPGVersusGame.prototype.onStartBoard = function () {
 	this.restoreLives();
 	this.digitPocket={};
 	this.lostCoords={};
+	this.openFirstCell();
 };
 
 RPGVersusGame.prototype.onResetBoard = function (e) {

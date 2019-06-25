@@ -23,9 +23,7 @@ VersusGame.prototype.onResetBoard=function(re){
 
 VersusGame.prototype.onStartBoard=function(){
   this.resetScore();
-  var openX=Math.round(this.board.sizeX/2);
-  var openY=Math.round(this.board.sizeY/2);
-  this.checkCell({pars:[openX,openY],user:'system'});
+  this.openFirstCell();
 };
 
 VersusGame.prototype.onCells=function(re){

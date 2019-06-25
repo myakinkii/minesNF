@@ -76,6 +76,12 @@ Game.prototype.startBoard=function(){
     this.onStartBoard();
 };
 
+Game.prototype.openFirstCell = function (x,y) {
+  var openX=x||Math.round(this.board.sizeX/2);
+  var openY=y||Math.round(this.board.sizeY/2);
+  this.checkCell({pars:[openX,openY],user:'system'});
+};
+
 Game.prototype.resetBoard=function(e){
   this.pause=1;
   if (this.onResetBoard)
