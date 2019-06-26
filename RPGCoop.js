@@ -227,8 +227,12 @@ RPGCoopGame.prototype.checkBattleComplete = function (re,atkProfile,defProfile) 
 		this.completeFloor({eventKey:'endBattleWin'});
 	} else if (!defProfile.mob && this.totalHp==0){
 		this.inBattle=false;
-		this.resetBoard({eventKey:'endBattleLose', floor:this.floor});
-		this.resetFloor();
+		if (this.pauseOnBattleLost) {
+			this.pauseOnBattleLost();
+		} else {
+			this.resetBoard({eventKey:'endBattleLose', floor:this.floor});
+			this.resetFloor();
+		}
 	}
 };
 
