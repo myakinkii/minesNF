@@ -149,6 +149,8 @@ Player.prototype={
 
 		if ( atkProfile.hp==0 || defProfile.hp==0 || atkProfile.curAP<RPGMechanics.actionCostAP.hit ) {
 			this.applyCoolDown(addCoolDown([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true));
+			atkProfile.assists=null;
+			if (game.actors.boss) game.actors.boss.onAttackEnded(atkProfile); //so that boss clears his underAttack
 			return;
 		}
 
@@ -221,18 +223,11 @@ Player.prototype={
 			}
 		}
 		
-		atkProfile.assists=null;
-		// if (game.actors.boss) game.actors.boss.underAttack=null;
-		if (game.actors.boss) game.actors.boss.onAttackEnded(atkProfile);
-
-		game.onResultHitTarget(re,atkProfile,defProfile);
-
-		if (!game.inBattle){
-			cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true);
-			cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
-		}
-
 		this.applyCoolDown(cooldowns);
+		atkProfile.assists=null;
+		if (game.actors.boss) game.actors.boss.onAttackEnded(atkProfile);
+		
+		game.onResultHitTarget(re,atkProfile,defProfile);
 	},
 
 	startCastSpell:function(spell,tgt){
