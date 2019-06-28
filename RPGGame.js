@@ -13,6 +13,15 @@ function RPGGame(pars) {
 
 RPGGame.prototype = new Game;
 
+Game.prototype.initGUI=function(user){
+	this.emitEvent('client',user,'game','StartGame', {mode:this.mode,boardId:this.name,r:this.board.sizeY,c:this.board.sizeX});
+	if (this.inBattle) {
+		this.emitEvent('client', user, 'game', 'StartBattle', { key:'startBattle',profiles:this.profiles });
+	} else {
+		this.emitEvent('client',user,'game','OpenLog',this.log);
+  	}
+};
+
 RPGGame.prototype.restoreLives = function () {
 	this.livesLost=0;
 	this.livesTotal=0;
