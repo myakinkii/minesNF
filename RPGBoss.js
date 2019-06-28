@@ -81,7 +81,10 @@ Boss.prototype.decideParryEvade=function(atkProfile){
 	var parryChance=chances.parry.chance;
 	var evadeChance=chances.evade.chance;
 	if (Math.random()<evadeChance) state="evade";
-	if (parryChance>evadeChance && Math.random()<parryChance) state="parry";
+	if (parryChance>evadeChance){
+		if (Math.random()<parryChance) state="parry";
+		else state=null;
+	} 
 	return state;
 };
 
