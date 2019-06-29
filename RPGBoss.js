@@ -11,8 +11,7 @@ Boss.prototype = new Player;
 Boss.prototype.onChangeAP=function(profile){
 	var isitme=(profile.name==this.profile.name);
 	if (!isitme) return;
-	// this.doSomething(null,this.underAttack,"ApChange");
-	this.doSomething(this.underAttack?this.game.actors[this.underAttack.name]:null,this.underAttack,"ApChange");
+	this.doSomethingDelayed(this.underAttack?this.game.actors[this.underAttack.name]:null,this.underAttack,"ApChange");
 };
 
 Boss.prototype.onAttackStarted=function(atkProfile){
@@ -21,14 +20,14 @@ Boss.prototype.onAttackStarted=function(atkProfile){
 	
 	var wasUnderAttack=this.underAttack;
 	this.underAttack=atkProfile;
-	this.doSomething(this.game.actors[atkProfile.name],wasUnderAttack||atkProfile,"AtkStart");
+	this.doSomethingDelayed(this.game.actors[atkProfile.name],wasUnderAttack||atkProfile,"AtkStart");
 };
 
 Boss.prototype.onAttackEnded=function(atkProfile){
 	var isitme=(atkProfile.name==this.profile.name);
 	
 	if (isitme) {
-		this.doSomething(this.underAttack?this.game.actors[this.underAttack.name]:null,this.underAttack,"AtkEndMy");
+		this.doSomethingDelayed(this.underAttack?this.game.actors[this.underAttack.name]:null,this.underAttack,"AtkEndMy");
 		return;
 	} else {
 		var tgt=this.game.actors[this.underAttack.name];
@@ -36,8 +35,16 @@ Boss.prototype.onAttackEnded=function(atkProfile){
 			this.underAttack=null;
 			tgt=null;
 		}
-		this.doSomething(tgt,this.underAttack,"AtkEnd");
+		this.doSomethingDelayed(tgt,this.underAttack,"AtkEnd");
 	}
+};
+
+Boss.prototype.doSomethingDelayed=function(tgt,underAttackProfile,srcEvt){
+	var delay=0;
+	delay=200*(1+Math.random()); // kind of avg human reaction time
+	var self=this;
+	if (delay) setTimeout(function(){ self.doSomething.call(self, tgt,underAttackProfile,srcEvt); }, delay);
+	else this.doSomething(tgt,underAttackProfile,srcEvt);
 };
 
 Boss.prototype.doSomething=function(tgt,underAttackProfile,srcEvt){
@@ -49,8 +56,9 @@ Boss.prototype.doSomething=function(tgt,underAttackProfile,srcEvt){
 	if (!tgt) tgt=this.getRandomTarget();
 	if (!tgt) return; // zeds all dead
 	
-	var willBlock = underAttackProfile && me.decideWillBlock(tgt.profile);
-	var state = underAttackProfile && me.decideParryEvade(tgt.profile);
+	var stillUnderAttack = underAttackProfile && underAttackProfile.state=='attack';
+	var willBlock = stillUnderAttack && me.decideWillBlock(tgt.profile);
+	var state = stillUnderAttack && me.decideParryEvade(tgt.profile);
 	var willParryEvade = state && me.profile.curAP>=RPGMechanics.actionCostAP[state];
 	var canAttack = me.isTargetAlive(tgt) && me.profile.curAP>=RPGMechanics.actionCostAP["hit"];
 	
@@ -84,7 +92,7 @@ Boss.prototype.decideParryEvade=function(atkProfile){
 	if (parryChance>evadeChance){
 		if (Math.random()<parryChance) state="parry";
 		else state=null;
-	} 
+	} 	
 	return state;
 };
 

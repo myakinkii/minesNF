@@ -106,7 +106,7 @@ var RPGMechanics={
 		}
 		function parry(){
 			var parryChance=rpg.constants.BASIC_CHANCE;
-			parryChance+=0.05*(defProfile.patk+1-atkProfile.patk); //cuz adjusted attack has +1 patk for free
+			parryChance+=0.05*(defProfile.patk-atkProfile.patk);
 			parryChance*=rpg.adjustLivesLost(defProfile);
 			parryChance*=rpg.adjustBossRatio(defProfile);
 			var re={ eventKey:'hitParried', chance:parryChance, result:false};

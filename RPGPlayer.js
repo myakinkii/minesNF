@@ -34,10 +34,10 @@ Player.prototype={
 			if (self.apTimer) self.apTimer=setTimeout(apTickFn,self.apTick);
 			if (profile.curAP==profile.maxAP) return;
 			profile.curAP++;
-			if(game.actors.boss) game.actors.boss.onChangeAP(profile);
 			game.emitEvent('party', game.id, 'game', 'ChangePlayerAP', { 
 				profiles:game.profiles, user:profile.name, curAP:profile.curAP 
 			});
+			if(game.actors.boss) game.actors.boss.onChangeAP(profile);
 		}
 		if (this.apTimer) clearTimeout(this.apTimer);
 		this.apTimer=setTimeout(apTickFn,this.apTick);
@@ -74,7 +74,7 @@ Player.prototype={
 		game.emitEvent('party', game.id, 'game', 'ChangeState', { profiles:game.profiles, user:profile.name, state:state, val:arg });
 	},
 	
-	applyCoolDown:function(players){
+	applyPenalty:function(players){
 		var self=this;
 		var game=this.game;
 		players.forEach(function(p){
@@ -124,9 +124,10 @@ Player.prototype={
 		var me=this.profile;
 		tgt.profile.attackers++;
 		this.setState(me,"attack",tgt.profile.name);
-		// console.log("startattack",me.name,tgt.profile.name);
 		if (tgt.onAttackStarted) tgt.onAttackStarted.call(tgt,me);
-		var adjustedAttackTime=RPGMechanics.constants.ATTACK_TIME-(100*me.speed);
+		var atkTimeAdjustment={ 0:0, 1:250, 2:250, 3:500, 4:500, 5:750, 6:1000 };
+		var adjustRaio=(me.speed<12 ? Math.floor(me.speed/2) : 6);
+		var adjustedAttackTime=RPGMechanics.constants.ATTACK_TIME-atkTimeAdjustment[adjustRaio];
 		this.timer=setTimeout(function(){ tgt.onEndAttack.call(tgt,me); },adjustedAttackTime);
 	},
 
@@ -139,91 +140,94 @@ Player.prototype={
 			defProfile.defender=null;
 			defProfile=game.profiles[defName];
 		}
-		// console.log("endattack",atkProfile.name,defProfile.name);
 
-		var addCoolDown=function(cd,profile,time,attacker){
-			cd.push({ name:profile.mob?"boss":profile.name, time:time, attacker:attacker });
-			for (var a in profile.assists) cd.push({name:a,time:time, attacker:attacker});
-			return cd;
+		var addPenalty=function(pen,profile,time,attacker){
+			pen.push({ name:profile.mob?"boss":profile.name, time:time, attacker:attacker });
+			for (var a in profile.assists) pen.push({name:a,time:time, attacker:attacker});
+			return pen;
 		};
 
 		if ( atkProfile.hp==0 || defProfile.hp==0 || atkProfile.curAP<RPGMechanics.actionCostAP.hit ) {
-			this.applyCoolDown(addCoolDown([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true));
+			this.applyPenalty(addPenalty([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true));
 			atkProfile.assists=null;
 			if (game.actors.boss) game.actors.boss.onAttackEnded(atkProfile); //so that boss clears his underAttack
 			return;
 		}
-
-		var adjustedAtk={ 
+		
+		var adjustedAtk={
 			bossRatio:atkProfile.bossRatio, livesLost:atkProfile.livesLost, 
-			patk:atkProfile.patk+1, speed:atkProfile.speed
+			patk:1+atkProfile.patk, speed:atkProfile.speed
+		};
+		var adjustedDef={
+			bossRatio:defProfile.bossRatio, patk:1+defProfile.patk,
+			pdef:1+defProfile.pdef, speed:defProfile.speed
 		};
 		var a,asp;
 		for (a in atkProfile.assists) {
 			asp=atkProfile.assists[a];
 			if (asp.curAP<RPGMechanics.actionCostAP.hit) continue;
-			adjustedAtk.patk+=(asp.patk||1);
+			adjustedAtk.patk+=(asp.patk+1);
 			adjustedAtk.speed+=asp.speed;
 			adjustedAtk.livesLost+=asp.livesLost;
 		}
+		if (atkProfile.assists) adjustedDef.pdef++;
 		
-		var chances=RPGMechanics.calcAtkChances(adjustedAtk,defProfile);
-		var parryEvadeSuccess=chances[defProfile.state] && chances[defProfile.state].result;
-		var parryEvadeCost=0;
-		if (chances[defProfile.state]) parryEvadeCost+=RPGMechanics.constants.AP_PARRY_EVADE_COST;
+		var chances=RPGMechanics.calcAtkChances(adjustedAtk,adjustedDef); // calc parry, evade, crit chances
+		
+		if (chances.crit.result) adjustedAtk.patk+=(atkProfile.patk||1);
+		
+		var parryEvadeSuccess=false, parryEvadeCost=0, haveEnoughAp;
+		if (chances[defProfile.state]){ // tried to parry/evade
+			haveEnoughAp=defProfile.curAP>=RPGMechanics.actionCostAP[defProfile.state];
+			// if (haveEnoughAp) parryEvadeCost+=RPGMechanics.constants.AP_PARRY_EVADE_COST; //cost for trying
+			parryEvadeSuccess = haveEnoughAp && chances[defProfile.state].result; //result
+			if (!parryEvadeSuccess) parryEvadeCost+=RPGMechanics.constants.AP_MISS_COST; // add cost for failing
+		}
 
-		var castOrattack=["attack","cast"].indexOf(defProfile.state)>-1;
-		
-		var cooldowns;
-		var defCooldown=RPGMechanics.constants.AP_HIT_COST;
+		var noBlock=["attack","cast","assist"].indexOf(defProfile.state)>-1;
+		var willBlock= !noBlock && parryEvadeCost==0;
+
+		var apCosts;
+		var gotHitCost=RPGMechanics.constants.AP_HIT_COST;
 
 		var re={dmg:0,eventKey:'hitDamage'};
 
-		var willBlock=chances[defProfile.state]?false:true;
-		if (defProfile.state=='assist') willBlock=false;
-
 		if (parryEvadeSuccess) {
-			// console.log(defProfile.name,defProfile.state,"parryEvadeSuccess -> atk cooldown");
 			re.eventKey=chances[defProfile.state].eventKey;
 			re.chance=chances[defProfile.state].chance;
-			cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST+RPGMechanics.constants.AP_MISS_COST,true);
-			cooldowns=addCoolDown(cooldowns,defProfile,parryEvadeCost);
+			apCosts=addPenalty([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST+RPGMechanics.constants.AP_MISS_COST,true);
+			apCosts=addPenalty(apCosts,defProfile,parryEvadeCost);
 		} else {
-			// console.log(defProfile.name,defProfile.state,"willBlock");				
 			if (chances.crit.result) {
-				adjustedAtk.patk*=2;
-				defCooldown*=2;
+				gotHitCost*=2;
 				re.eventKey=chances.crit.eventKey;
 				re.chance=chances.crit.chance;
 			}
-			var armorEndureChance=0.5;
+			var armorEndureChance=RPGMechanics.constants.BASIC_CHANCE;
 			armorEndureChance+=0.1*(adjustedAtk.patk-defProfile.pdef);
-			if ( willBlock && adjustedAtk.patk<defProfile.pdef+1) {
-				if ( defProfile.armorEndurance==0 && defProfile.pdef>0 ){
+			if ( willBlock && adjustedDef.pdef-adjustedAtk.patk>0) {
+				if ( defProfile.armorEndurance==0){
 					re.eventKey='hitPdefDecrease';
-					defProfile.pdef--;
+					if (defProfile.pdef>0) defProfile.pdef--;
 					defProfile.armorEndurance=RPGMechanics.constants.ARMOR_ENDURANCE;
-					cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST/2,true);
-					cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.AP_ATTACK_COST/2);
-					// console.log(defProfile.name,defProfile.state,defProfile.pdef,re.eventKey," -> both cooldown");
+					apCosts=addPenalty([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST/2,true);
+					apCosts=addPenalty(apCosts,defProfile,RPGMechanics.constants.AP_ATTACK_COST/2);
 				} else {
 					re.eventKey='hitBlocked';
 					if (RPGMechanics.rollDice("fightArmorEndure",armorEndureChance)) defProfile.armorEndurance--;
-					cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST,true);
-					cooldowns=addCoolDown(cooldowns,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
-					// console.log(defProfile.name,defProfile.state,re.eventKey," -> atk cooldown");
+					apCosts=addPenalty([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST,true);
+					apCosts=addPenalty(apCosts,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
 				}
 			} else {
-				// console.log(defProfile.name,defProfile.state,"wasHit -> def cooldown");
 				defProfile.hp--;
 				defProfile.wasHit=true;
 				re.dmg=adjustedAtk.patk;
-				cooldowns=addCoolDown([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST,true);
-				cooldowns=addCoolDown(cooldowns,defProfile,defCooldown+parryEvadeCost);
+				apCosts=addPenalty([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST,true);
+				apCosts=addPenalty(apCosts,defProfile,gotHitCost+parryEvadeCost);
 			}
 		}
 		
-		this.applyCoolDown(cooldowns);
+		this.applyPenalty(apCosts);
 		atkProfile.assists=null;
 		if (game.actors.boss) game.actors.boss.onAttackEnded(atkProfile);
 		
