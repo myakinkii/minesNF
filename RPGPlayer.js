@@ -159,8 +159,8 @@ Player.prototype={
 			patk:1+atkProfile.patk, speed:atkProfile.speed
 		};
 		var adjustedDef={
-			bossRatio:defProfile.bossRatio, patk:1+defProfile.patk,
-			pdef:1+defProfile.pdef, speed:defProfile.speed
+			bossRatio:defProfile.bossRatio, livesLost:atkProfile.livesLost, 
+			patk:1+defProfile.patk, speed:defProfile.speed, pdef:1+defProfile.pdef
 		};
 		var a,asp;
 		for (a in atkProfile.assists) {
