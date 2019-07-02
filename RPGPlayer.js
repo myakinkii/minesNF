@@ -222,6 +222,10 @@ Player.prototype={
 					apCosts=addPenalty(apCosts,defProfile,RPGMechanics.constants.AP_ATTACK_COST/2);
 				} else if (RPGMechanics.rollDice("fightArmorPierce",pierceChance)){
 					re.eventKey='hitPierced';
+					re.chance=pierceChance;
+					defProfile.hp--;
+					defProfile.wasHit=true;
+					re.dmg=adjustedAtk.patk;
 					apCosts=addPenalty([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST,true);
 					apCosts=addPenalty(apCosts,defProfile,RPGMechanics.constants.AP_ATTACK_COST/2);
 				} else {
