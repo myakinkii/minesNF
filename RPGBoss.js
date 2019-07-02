@@ -17,7 +17,6 @@ Boss.prototype.onChangeAP=function(profile){
 Boss.prototype.onAttackStarted=function(atkProfile){
 	var isitme=(atkProfile.name==this.profile.name);
 	if (isitme) return;
-	
 	var wasUnderAttack=this.underAttack;
 	this.underAttack=atkProfile;
 	this.doSomethingDelayed(this.game.actors[atkProfile.name],wasUnderAttack||atkProfile,"AtkStart");
@@ -25,12 +24,11 @@ Boss.prototype.onAttackStarted=function(atkProfile){
 
 Boss.prototype.onAttackEnded=function(atkProfile){
 	var isitme=(atkProfile.name==this.profile.name);
-	
 	if (isitme) {
 		this.doSomethingDelayed(this.underAttack?this.game.actors[this.underAttack.name]:null,this.underAttack,"AtkEndMy");
 		return;
 	} else {
-		var tgt=this.game.actors[this.underAttack.name];
+		var tgt=this.game.actors[this.underAttack&&this.underAttack.name||atkProfile.name];
 		if (tgt.profile.name==atkProfile.name) {
 			this.underAttack=null;
 			tgt=null;

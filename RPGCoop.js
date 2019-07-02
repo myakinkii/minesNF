@@ -68,6 +68,7 @@ RPGCoopGame.prototype.resetFloor = function () {
 	this.fledPreviousBattle=false;
 	this.recipes=[];
 	this.loot={};
+	this.orbs={};
 	this.floor=1;
 	this.board.bombs=this.boardPars.b;
 };
@@ -80,9 +81,15 @@ RPGCoopGame.prototype.fleeBattle = function (e) {
 	for (var p in this.players) if(!this.voteFlee[p]) voteFleeAccepted=false;
 	if (voteFleeAccepted) {
 		this.fledPreviousBattle=true;
-		if (this.actors.boss.timer) clearTimeout(this.actors.boss.timer);
+		this.stopBoss();
 		this.resetBoard({eventKey:'endBattleFlee',result:"flee",floor:this.floor,lives:this.livesTotal});
 	}
+};
+
+RPGCoopGame.prototype.stopBoss = function () {
+	if (this.actors.boss.timer) clearTimeout(this.actors.boss.timer);
+	clearTimeout(this.actors.boss.apTimer);
+	this.actors.boss.apTimer=null;
 };
 
 RPGCoopGame.prototype.ascendToFloor1 = function (e) {
@@ -138,6 +145,7 @@ RPGCoopGame.prototype.onResetBoard = function (e) {
 
 RPGCoopGame.prototype.onCells = function (re) {
 	this.addCells(re.cells);
+	this.addOrbs(re.user,this.calcOrbs(re.cells));
 	this.openCells(re.cells);
 };
 
@@ -224,9 +232,11 @@ RPGCoopGame.prototype.checkBattleComplete = function (re,atkProfile,defProfile) 
 	if ( re.dmg && !defProfile.mob) this.totalHp--;
 	if (defProfile.mob && defProfile.hp==0) {
 		this.inBattle=false;
+		this.stopBoss();
 		this.completeFloor({eventKey:'endBattleWin'});
 	} else if (!defProfile.mob && this.totalHp==0){
 		this.inBattle=false;
+		this.stopBoss();
 		if (this.pauseOnBattleLost) {
 			this.pauseOnBattleLost();
 		} else {
@@ -238,6 +248,7 @@ RPGCoopGame.prototype.checkBattleComplete = function (re,atkProfile,defProfile) 
 
 RPGCoopGame.prototype.onComplete = function (re) {
 	this.addCells(re.cells);
+	this.addOrbs(re.user,this.calcOrbs(re.cells));
 	this.openCells(re.cells);
 	this.openCells(this.board.mines);
 	if (!this.inBattle) this.startBattle();

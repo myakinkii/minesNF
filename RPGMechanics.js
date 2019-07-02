@@ -3,7 +3,8 @@ var RPGMechanics={
 	constants:{
 		ARMOR_ENDURANCE:1,
 		BASIC_CHANCE:0.5,
-		AVOID_INTERRUPT_CHANCE:0.6,
+		ORB_CHANCE_ADJUST:0.05,
+		INTERRUPT_CHANCE:0.4,
 		BOSS_ATTACK_DELAY_TIME:1000,
 		ATTACK_TIME:1500,
 		CAST_TIME:2000,
@@ -15,6 +16,21 @@ var RPGMechanics={
 		AP_MISS_COST:1,
 		AP_ATTACK_COST:2,
 		AP_PARRY_EVADE_COST:1
+	},
+	
+	orbEffects:{
+		parry:-1,
+		antiparry:0,
+		evade:-1,
+		antievade:0,
+		crit:1,
+		anticrit:0,
+		pierce:1,
+		antipierce:0,
+		endure:1,
+		antiendure:0,
+		interrupt:1,
+		antiinterrupt:0
 	},
 	
 	actionCostAP:{
@@ -91,12 +107,20 @@ var RPGMechanics={
 		return equip;
 	},
 	
+	adjustChanceWithOrbs:function(eft,chance,atkProfile,defProfile){
+		var rpg=RPGMechanics;
+		var atkdef= rpg.constants.ORB_CHANCE_ADJUST * rpg.orbEffects[eft];
+		var delta=atkdef*(atkProfile.orbs[(atkdef>0?'':'anti')+eft]||0) - atkdef*(defProfile.orbs[(atkdef<0?'':'anti')+eft]||0);
+		// console.log(eft,chance,delta);
+		return chance+delta;
+	},
+	
 	calcAtkChances:function (atkProfile,defProfile) {
 
 		var rpg=RPGMechanics;
 		
 		function evade(){
-			var evadeChance=rpg.constants.BASIC_CHANCE;
+			var evadeChance=rpg.adjustChanceWithOrbs("evade",rpg.constants.BASIC_CHANCE,atkProfile,defProfile);
 			evadeChance+=0.05*(defProfile.speed-atkProfile.speed);
 			evadeChance*=rpg.adjustLivesLost(defProfile);
 			evadeChance*=rpg.adjustBossRatio(defProfile);
@@ -105,7 +129,7 @@ var RPGMechanics={
 			return re;
 		}
 		function parry(){
-			var parryChance=rpg.constants.BASIC_CHANCE;
+			var parryChance=rpg.adjustChanceWithOrbs("parry",rpg.constants.BASIC_CHANCE,atkProfile,defProfile);
 			parryChance+=0.05*(defProfile.patk-atkProfile.patk);
 			parryChance*=rpg.adjustLivesLost(defProfile);
 			parryChance*=rpg.adjustBossRatio(defProfile);
@@ -114,7 +138,7 @@ var RPGMechanics={
 			return re;
 		}
 		function crit(){
-			var critChance=rpg.constants.BASIC_CHANCE/5;
+			var critChance=rpg.adjustChanceWithOrbs("crit",rpg.constants.BASIC_CHANCE/5,atkProfile,defProfile);
 			critChance+=0.1*(atkProfile.speed-defProfile.speed);
 			critChance*=rpg.adjustLivesLost(atkProfile);
 			critChance*=rpg.adjustBossRatio(atkProfile);

@@ -22,6 +22,7 @@ RPGVersusGame.prototype.onResetBoard = function (e) {
 
 RPGVersusGame.prototype.onCells = function (re) {
 	this.addCells(re.cells);
+	this.addOrbs(re.user,this.calcOrbs(re.cells));
 	this.openCells(re.cells);
 };
 
@@ -73,6 +74,7 @@ RPGVersusGame.prototype.checkBattleComplete = function (re,atkProfile,defProfile
 
 RPGVersusGame.prototype.onComplete = function (re) {
 	this.addCells(re.cells);
+	this.addOrbs(re.user,this.calcOrbs(re.cells));
 	this.openCells(re.cells);
 	this.openCells(this.board.mines);
 	if (!this.inBattle) this.startBattle();

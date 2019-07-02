@@ -9,6 +9,7 @@ function RPGGame(pars) {
 		if(!this.profiles[u]) this.profiles[u]={};
 		this.actors[u]=new Player(this,this.profiles[u].equip||[]);
 	}
+	this.orbs={};
 }
 
 RPGGame.prototype = new Game;
@@ -108,10 +109,10 @@ RPGGame.prototype.assistAttack = function (e) {
 	var user=this.actors[e.user], tgt=this.actors[e.pars[0]||"boss"];
 	try {
 		this.assertAliveAndInBattle(user);
-		this.assertNotCoolDown(user);
+		this.assertNotBusyState(user);
 		this.assertNotSelf(user,tgt);
 		this.assertEnoughAP(user,"assist");
-		if (user.profile.state!="attack" && tgt.profile.state=="attack") user.addAssist(tgt);
+		if (tgt.profile.state=="attack" && tgt.profile.target!=user.profile.name) user.addAssist(tgt);
 	} catch (e) {}
 };
 
@@ -119,9 +120,10 @@ RPGGame.prototype.defendTarget = function (e) {
 	var user=this.actors[e.user], tgt=this.actors[e.pars[0]||"boss"];
 	try {
 		this.assertAliveAndInBattle(user);
+		this.assertNotBusyState(user);
 		this.assertNotSelf(user,tgt);
 		this.assertEnoughAP(user,"defend");
-		if (user.profile.state=="active" && !tgt.profile.mob) user.defendTarget(tgt);
+		if (!tgt.profile.mob && tgt.profile.attackers>0) user.defendTarget(tgt);
 	} catch (e) {}
 };
 
@@ -165,6 +167,36 @@ RPGGame.prototype.addCells = function (cells) {
 			if (n>this.bossLevel) this.bossLevel=n;
 		}
 	}
+};
+
+RPGGame.prototype.calcOrbs = function (cells) {
+	var i,n=0;
+	for (i in cells) n+=cells[i];
+	if (n<10) return [];
+	var orbs=Math.floor(n/20), almostOrb=n%20;
+	if (Math.random()<almostOrb/20) orbs++;
+	return this.getRandomOrbs(orbs);
+};
+
+RPGGame.prototype.getRandomOrbs = function (n) {
+	var keys=Object.keys(RPGMechanics.orbEffects);
+	var effects=[];
+	while (n>0){
+		effects.push(keys[Math.floor(keys.length*Math.random())]);
+		n--;
+	}
+	return effects;
+};
+
+RPGGame.prototype.addOrbs = function (user,orbs) {
+	if (user=='system' || orbs.length==0) return;
+	if (!this.orbs[user]) this.orbs[user]={};
+	var myOrbs=this.orbs[user];
+	orbs.forEach(function(effect){
+		if (!myOrbs[effect]) myOrbs[effect]=0;
+		myOrbs[effect]++;
+	});
+	this.emitEvent('party', this.id, 'game', 'AddOrbs', { user:user, added:orbs, orbs:myOrbs });
 };
 
 RPGGame.prototype.canCheckCell=function(genericCheckResult,user){

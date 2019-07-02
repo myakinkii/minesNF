@@ -14,6 +14,7 @@ Player.prototype={
 		template.state="active";
 		template.attackers=0;
 		template.spells={};
+		template.orbs=this.game.orbs[template.name]||{};
 		template.equip=this.equip;
 		
 		this.profile=this.equip.reduce(function(prev,cur){
@@ -32,6 +33,7 @@ Player.prototype={
 		this.refreshApStats(profile);
 		function apTickFn(){
 			if (self.apTimer) self.apTimer=setTimeout(apTickFn,self.apTick);
+			else return;
 			if (profile.curAP==profile.maxAP) return;
 			profile.curAP++;
 			game.emitEvent('party', game.id, 'game', 'ChangePlayerAP', { 
@@ -84,7 +86,8 @@ Player.prototype={
 				game.emitEvent('party', game.id, 'game', 'ChangePlayerAP', { profiles:game.profiles, user:profile.name, curAP:profile.curAP });
 			}
 			if (!p.attacker && game.actors[p.name].timer){
-				if (profile.state!="cast" || Math.random()<RPGMechanics.constants.AVOID_INTERRUPT_CHANCE) return;
+				var interruptChance=RPGMechanics.adjustChanceWithOrbs("interrupt",RPGMechanics.constants.INTERRUPT_CHANCE,self.profile,profile);
+				if ( !( profile.state=="cast" && RPGMechanics.rollDice("fightInterrupt",interruptChance) ) ) return;
 				clearTimeout(game.actors[p.name].timer);
 				game.emitEvent( 'party', game.id, 'game', 'BattleLogEntry',
 					{ eventKey:'actionInterrupted', defense:profile.name }
@@ -149,18 +152,22 @@ Player.prototype={
 
 		if ( atkProfile.hp==0 || defProfile.hp==0 || atkProfile.curAP<RPGMechanics.actionCostAP.hit ) {
 			this.applyPenalty(addPenalty([],atkProfile,RPGMechanics.constants.NO_COOLDOWN_TIME,true));
+			this.applyPenalty(addPenalty([],defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME));
 			atkProfile.assists=null;
 			if (game.actors.boss) game.actors.boss.onAttackEnded(atkProfile); //so that boss clears his underAttack
 			return;
 		}
 		
 		var adjustedAtk={
-			bossRatio:atkProfile.bossRatio, livesLost:atkProfile.livesLost, 
-			patk:1+atkProfile.patk, speed:atkProfile.speed
+			bossRatio:atkProfile.bossRatio, 
+			livesLost:atkProfile.livesLost<8?atkProfile.livesLost:8,
+			patk:1+atkProfile.patk, speed:atkProfile.speed, orbs:atkProfile.orbs
 		};
 		var adjustedDef={
-			bossRatio:defProfile.bossRatio, livesLost:atkProfile.livesLost, 
-			patk:1+defProfile.patk, speed:defProfile.speed, pdef:1+defProfile.pdef
+			pdef:1+defProfile.pdef,
+			bossRatio:defProfile.bossRatio, 
+			livesLost:defProfile.livesLost<8?defProfile.livesLost:8,
+			patk:1+defProfile.patk, speed:defProfile.speed, orbs:defProfile.orbs
 		};
 		var a,asp;
 		for (a in atkProfile.assists) {
@@ -203,7 +210,8 @@ Player.prototype={
 				re.eventKey=chances.crit.eventKey;
 				re.chance=chances.crit.chance;
 			}
-			var armorEndureChance=RPGMechanics.constants.BASIC_CHANCE;
+			var pierceChance=RPGMechanics.adjustChanceWithOrbs("pierce",RPGMechanics.constants.BASIC_CHANCE/5,atkProfile,defProfile);
+			var armorEndureChance=RPGMechanics.adjustChanceWithOrbs("endure",RPGMechanics.constants.BASIC_CHANCE,atkProfile,defProfile);
 			armorEndureChance+=0.1*(adjustedAtk.patk-defProfile.pdef);
 			if ( willBlock && adjustedDef.pdef-adjustedAtk.patk>0) {
 				if ( defProfile.armorEndurance==0){
@@ -211,6 +219,10 @@ Player.prototype={
 					if (defProfile.pdef>0) defProfile.pdef--;
 					defProfile.armorEndurance=RPGMechanics.constants.ARMOR_ENDURANCE;
 					apCosts=addPenalty([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST/2,true);
+					apCosts=addPenalty(apCosts,defProfile,RPGMechanics.constants.AP_ATTACK_COST/2);
+				} else if (RPGMechanics.rollDice("fightArmorPierce",pierceChance)){
+					re.eventKey='hitPierced';
+					apCosts=addPenalty([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST,true);
 					apCosts=addPenalty(apCosts,defProfile,RPGMechanics.constants.AP_ATTACK_COST/2);
 				} else {
 					re.eventKey='hitBlocked';
