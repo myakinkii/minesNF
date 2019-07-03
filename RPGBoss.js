@@ -11,7 +11,7 @@ Boss.prototype = new Player;
 Boss.prototype.onChangeAP=function(profile){
 	var isitme=(profile.name==this.profile.name);
 	if (!isitme) return;
-	this.doSomethingDelayed(this.underAttack?this.game.actors[this.underAttack.name]:null,this.underAttack,"ApChange");
+	this.doSomethingDelayed(null,null,"ApChange");
 };
 
 Boss.prototype.onAttackStarted=function(atkProfile){
@@ -19,21 +19,19 @@ Boss.prototype.onAttackStarted=function(atkProfile){
 	if (isitme) return;
 	var wasUnderAttack=this.underAttack;
 	this.underAttack=atkProfile;
-	this.doSomethingDelayed(this.game.actors[atkProfile.name],wasUnderAttack||atkProfile,"AtkStart");
+	this.doSomethingDelayed(this.game.actors[atkProfile.name],wasUnderAttack,"AtkStart");
 };
 
 Boss.prototype.onAttackEnded=function(atkProfile){
 	var isitme=(atkProfile.name==this.profile.name);
 	if (isitme) {
-		this.doSomethingDelayed(this.underAttack?this.game.actors[this.underAttack.name]:null,this.underAttack,"AtkEndMy");
+		this.doSomethingDelayed(null,null,"AtkEndMy");
 		return;
 	} else {
-		var tgt=this.game.actors[this.underAttack&&this.underAttack.name||atkProfile.name];
-		if (tgt.profile.name==atkProfile.name) {
+		if ( !this.underAttack || this.underAttack && this.underAttack.name==atkProfile.name ) {
 			this.underAttack=null;
-			tgt=null;
 		}
-		this.doSomethingDelayed(tgt,this.underAttack,"AtkEnd");
+		this.doSomethingDelayed(null,this.underAttack,"AtkEnd");
 	}
 };
 
@@ -41,7 +39,14 @@ Boss.prototype.doSomethingDelayed=function(tgt,underAttackProfile,srcEvt){
 	var delay=0;
 	delay=200*(1+Math.random()); // kind of avg human reaction time
 	var self=this;
-	if (delay) setTimeout(function(){ self.doSomething.call(self, tgt,underAttackProfile,srcEvt); }, delay);
+	if (delay) setTimeout(function(){ 
+		//tgt means current event source player threatening us
+		// underAttackProfile means possibly other player involved in recent attack on us
+		if (!tgt && self.underAttack) tgt=self.game.actors[self.underAttack.name];
+		if (!underAttackProfile) underAttackProfile=self.underAttack;
+		if (underAttackProfile && !self.underAttack) underAttackProfile=null;
+		self.doSomething.call(self, tgt, underAttackProfile, srcEvt); 
+	}, delay);
 	else this.doSomething(tgt,underAttackProfile,srcEvt);
 };
 
@@ -53,6 +58,7 @@ Boss.prototype.doSomething=function(tgt,underAttackProfile,srcEvt){
 	if (tgt && !underAttackProfile) underAttackProfile=tgt.profile;
 	if (!tgt) tgt=this.getRandomTarget();
 	if (!tgt) return; // zeds all dead
+	if (["parry","evade"].indexOf(me.profile.state)>-1) return; // we are not allowed to change our mind
 	
 	var stillUnderAttack = underAttackProfile && underAttackProfile.state=='attack';
 	var willBlock = stillUnderAttack && me.decideWillBlock(tgt.profile);

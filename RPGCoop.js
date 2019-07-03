@@ -87,7 +87,7 @@ RPGCoopGame.prototype.fleeBattle = function (e) {
 };
 
 RPGCoopGame.prototype.stopBoss = function () {
-	if (this.actors.boss.timer) clearTimeout(this.actors.boss.timer);
+	// if (this.actors.boss.timer) clearTimeout(this.actors.boss.timer);
 	clearTimeout(this.actors.boss.apTimer);
 	this.actors.boss.apTimer=null;
 };
