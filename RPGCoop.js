@@ -45,6 +45,7 @@ RPGCoopGame.prototype.stealLoot = function (e) {
 		bossProfile.spottedStealing=true;
 		bossProfile.patk=Math.ceil(1.3*(bossProfile.patk+1));
 		bossProfile.speed=Math.ceil(1.3*(bossProfile.speed+1));
+		this.actors.boss.refreshApStats.call(this.actors.boss,bossProfile);
 		this.emitEvent('party', this.id, 'system', 'Message', 'Stealing failed. Spotted');
 		this.emitEvent('party', this.id, 'game', 'StealFailed', 
 			{ user:e.user, spotted:true, profiles:this.profiles, chance:spotChance }

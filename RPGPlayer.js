@@ -49,7 +49,7 @@ Player.prototype={
 
 	refreshApStats:function(profile){
 		this.apTick=RPGMechanics.constants.AP_TICK-250*(profile.speed<12 ? Math.floor(profile.speed/3) : 4);
-		this.profile.maxAP=3 + (profile.patk<12 ? Math.floor(profile.patk/4) : 3);
+		this.profile.maxAP= 3 + (profile.patk<12 ? Math.floor(profile.patk/4) : 3);
 		this.profile.curAP=profile.curAP||0;
 	},
 		
@@ -70,8 +70,10 @@ Player.prototype={
 		if (['assist','defend','attack'].indexOf(state)>-1) profile.target=arg;
 		else profile.target=null;
 
-		var game=this.game;
+		if (state=='active') timer=null;
 		profile.state=state;
+
+		var game=this.game;
 		if(game.actors.boss) game.actors.boss.onState(profile,state,arg);
 		game.emitEvent('party', game.id, 'game', 'ChangeState', { profiles:game.profiles, user:profile.name, state:state, val:arg });
 	},
@@ -79,19 +81,19 @@ Player.prototype={
 	applyPenalty:function(players){
 		var self=this;
 		var game=this.game;
+		var interruptableStates=["cast"]; // probably add interrupt attack or assist later
 		players.forEach(function(p){
 			var profile=game.profiles[p.name];
 			if (p.time>0) {
 				profile.curAP-=p.time;
 				game.emitEvent('party', game.id, 'game', 'ChangePlayerAP', { profiles:game.profiles, user:profile.name, curAP:profile.curAP });
 			}
-			if (!p.attacker && game.actors[p.name].timer){
+			if (!p.attacker && interruptableStates.indexOf(profile.state)>-1 && game.actors[p.name].timer){
 				var interruptChance=RPGMechanics.adjustChanceWithOrbs("interrupt",RPGMechanics.constants.INTERRUPT_CHANCE,self.profile,profile);
-				if ( !( profile.state=="cast" && RPGMechanics.rollDice("fightInterrupt",interruptChance) ) ) return;
-				clearTimeout(game.actors[p.name].timer);
-				game.emitEvent( 'party', game.id, 'game', 'BattleLogEntry',
-					{ eventKey:'actionInterrupted', defense:profile.name }
-				);
+				if (RPGMechanics.rollDice("fightInterrupt",interruptChance)){
+					clearTimeout(game.actors[p.name].timer);
+					game.emitEvent( 'party', game.id, 'game', 'BattleLogEntry', { eventKey:'actionInterrupted', defense:profile.name } );
+				} else return;
 			}
 			self.setState.call(self,profile,"active");
 			game.actors[p.name].timer=null;
@@ -211,8 +213,8 @@ Player.prototype={
 				re.chance=chances.crit.chance;
 			}
 			var pierceChance=RPGMechanics.adjustChanceWithOrbs("pierce",RPGMechanics.constants.BASIC_CHANCE/5,atkProfile,defProfile);
-			var armorEndureChance=RPGMechanics.adjustChanceWithOrbs("endure",RPGMechanics.constants.BASIC_CHANCE,atkProfile,defProfile);
-			armorEndureChance+=0.1*(adjustedAtk.patk-defProfile.pdef);
+			var armorDegradeChance=RPGMechanics.adjustChanceWithOrbs("degrade",RPGMechanics.constants.BASIC_CHANCE,atkProfile,defProfile);
+			armorDegradeChance+=0.1*(adjustedAtk.patk-defProfile.pdef);
 			if ( willBlock && adjustedDef.pdef-adjustedAtk.patk>0) {
 				if ( defProfile.armorEndurance==0){
 					re.eventKey='hitPdefDecrease';
@@ -230,7 +232,7 @@ Player.prototype={
 					apCosts=addPenalty(apCosts,defProfile,RPGMechanics.constants.AP_ATTACK_COST/2);
 				} else {
 					re.eventKey='hitBlocked';
-					if (RPGMechanics.rollDice("fightArmorEndure",armorEndureChance)) defProfile.armorEndurance--;
+					if (RPGMechanics.rollDice("fightArmorDegrade",armorDegradeChance)) defProfile.armorEndurance--;
 					apCosts=addPenalty([],atkProfile,RPGMechanics.constants.AP_ATTACK_COST,true);
 					apCosts=addPenalty(apCosts,defProfile,RPGMechanics.constants.NO_COOLDOWN_TIME);
 				}
@@ -263,6 +265,8 @@ Player.prototype={
 		var srcProfile=this.profile;
 		var tgtProfile=tgt?tgt.profile:srcProfile;
 		this.setState(srcProfile,"active");
+		this.timer=null;
+
 		if (this.profile.hp==0 || tgtProfile.hp==0) {
 			return;
 		} else {

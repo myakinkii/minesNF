@@ -27,8 +27,8 @@ var RPGMechanics={
 		anticrit:0,
 		pierce:1,
 		antipierce:0,
-		endure:1,
-		antiendure:0,
+		degrade:1,
+		antidegrade:0,
 		interrupt:1,
 		antiinterrupt:0
 	},
