@@ -57,6 +57,7 @@ RPGCoopGame.prototype.stealLoot = function (e) {
 	stealChance*=RPGMechanics.adjustLivesLost(userProfile);
 	if (RPGMechanics.rollDice("stealSucceed",stealChance)){
 		this.inBattle=false;
+		this.stopBoss();
 		this.emitEvent('party', this.id, 'game', 'StealSucceeded',  { user:e.user,chance:stealChance } );
 		this.completeFloor({eventKey:'endBattleStole'});
 	} else {

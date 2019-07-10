@@ -81,16 +81,16 @@ Player.prototype={
 	applyPenalty:function(players){
 		var self=this;
 		var game=this.game;
-		var interruptableStates=["cast"]; // probably add interrupt attack or assist later
+		var interruptableStates=["cast"];
 		players.forEach(function(p){
 			var profile=game.profiles[p.name];
 			if (p.time>0) {
 				profile.curAP-=p.time;
 				game.emitEvent('party', game.id, 'game', 'ChangePlayerAP', { profiles:game.profiles, user:profile.name, curAP:profile.curAP });
 			}
-			if (!p.attacker && interruptableStates.indexOf(profile.state)>-1 && game.actors[p.name].timer){
+			if (!p.attacker && game.actors[p.name].timer){
 				var interruptChance=RPGMechanics.adjustChanceWithOrbs("interrupt",RPGMechanics.constants.INTERRUPT_CHANCE,self.profile,profile);
-				if (RPGMechanics.rollDice("fightInterrupt",interruptChance)){
+				if ( interruptableStates.indexOf(profile.state)>-1 && RPGMechanics.rollDice("fightInterrupt",interruptChance)){
 					clearTimeout(game.actors[p.name].timer);
 					game.emitEvent( 'party', game.id, 'game', 'BattleLogEntry', { eventKey:'actionInterrupted', defense:profile.name } );
 				} else return;
